@@ -172,26 +172,24 @@ class IngestionPipeline:
         # Batch insert into Milvus
         if milvus_batch_data:
             try:
-                # Prepare data in the format expected by insert_entity
-                ids = [item["id"] for item in milvus_batch_data]
-                vectors = [item["vector"] for item in milvus_batch_data]
-                texts = [item["text"] for item in milvus_batch_data]
+                # Prepare data in the format expected by Milvus schema (excluding auto-generated id)
                 translations = [item["translation"] for item in milvus_batch_data]
                 books = [item["book"] for item in milvus_batch_data]
                 chapters = [item["chapter"] for item in milvus_batch_data]
                 chunk_indices = [item["chunk_index"] for item in milvus_batch_data]
+                texts = [item["text"] for item in milvus_batch_data]
+                vectors = [item["vector"] for item in milvus_batch_data]
 
                 formatted_data = [
-                    ids,
-                    vectors,
-                    texts,
                     translations,
                     books,
                     chapters,
                     chunk_indices,
+                    texts,
+                    vectors,
                 ]
 
-                self.milvus_manager.insert_entity(
+                self.milvus_manager.insert_batch(
                     collection_name=self.collection_name, data=formatted_data
                 )
                 logger.debug(

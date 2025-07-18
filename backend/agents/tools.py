@@ -289,15 +289,19 @@ class SearchTools:
             return empty_result
 
         # 2. Extract entities from the top vector search results (not just the first one)
-        all_extracted_entities = set()
-        for result in vector_results[
-            : min(3, len(vector_results))
-        ]:  # Use top 3 results
-            text = result.get("text", "")
-            entities = await self._extract_entities_from_text(text)
-            all_extracted_entities.update(entities)
+        # Temporarily skip entity extraction to fix RAG system
+        extracted_entities = []
+        logger.info("Skipping entity extraction temporarily for testing")
+        
+        # all_extracted_entities = set()
+        # for result in vector_results[
+        #     : min(3, len(vector_results))
+        # ]:  # Use top 3 results
+        #     text = result.get("text", "")
+        #     entities = await self._extract_entities_from_text(text)
+        #     all_extracted_entities.update(entities)
 
-        extracted_entities = list(all_extracted_entities)
+        # extracted_entities = list(all_extracted_entities)
 
         # 3. Perform enhanced graph search
         graph_results = []

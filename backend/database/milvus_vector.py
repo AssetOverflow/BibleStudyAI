@@ -81,7 +81,7 @@ class MilvusManager:
                 FieldSchema(name="translation", dtype=DataType.VARCHAR, max_length=10),
                 FieldSchema(name="book", dtype=DataType.VARCHAR, max_length=50),
                 FieldSchema(name="chapter", dtype=DataType.INT64),
-                FieldSchema(name="verse", dtype=DataType.INT64),
+                FieldSchema(name="chunk_index", dtype=DataType.INT64),
                 FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=2000),
                 FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=1536),  # OpenAI text-embedding-3-small dimension
             ]
@@ -148,6 +148,24 @@ class MilvusManager:
 
         except Exception as e:
             logger.error(f"Error inserting entity into {collection_name}: {e}")
+            return False
+
+    def insert_batch(self, collection_name: str, data: list):
+        """Insert a batch of entities into the collection."""
+        if not self.is_available():
+            logger.warning("Milvus connection not available for batch insertion")
+            return False
+
+        try:
+            from pymilvus import Collection
+
+            collection = Collection(collection_name, using=self.connection_alias)
+            collection.insert(data)
+            logger.info(f"Successfully inserted batch of {len(data[0]) if data else 0} entities into {collection_name}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error inserting batch into {collection_name}: {e}")
             return False
 
     def flush(self, collection_name: str):
