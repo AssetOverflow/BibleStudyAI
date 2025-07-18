@@ -2,8 +2,10 @@ import asyncio
 from loguru import logger
 from typing import Dict, Any, List
 
-from ..agents.tools import SearchTools
-from .ai_integration import ai_integration_client, ModelProvider
+from agents.tools import SearchTools
+from database.milvus_vector import MilvusManager
+from database.neo4j_graph import Neo4jManager
+from services.ai_integration import ai_integration_client, ModelProvider
 
 
 class RAGSystem:

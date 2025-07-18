@@ -29,6 +29,7 @@ class User(Base):
     created_at = Column(DateTime, server_default="now()")
 
     study_sessions = relationship("StudySession", back_populates="user")
+    notes = relationship("Note", back_populates="user")
 
 
 class StudySession(Base):
@@ -67,5 +68,4 @@ class Note(Base):
     created_at = Column(DateTime, server_default="now()")
     updated_at = Column(DateTime, server_default="now()", onupdate="now()")
 
-    # You could add relationships to verses or topics here later
-    # user = relationship("User", back_populates="notes")
+    user = relationship("User", back_populates="notes")

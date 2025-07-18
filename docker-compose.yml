@@ -20,16 +20,25 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - XAI_API_KEY=${XAI_API_KEY}
     depends_on:
-      - timescaledb
-      - redis-stack
-      - redpanda
-      - deephaven
-      - milvus
-      - neo4j
+      timescaledb:
+        condition: service_healthy
+      redis-stack:
+        condition: service_healthy
+      redpanda:
+        condition: service_started
+      deephaven:
+        condition: service_started
+      milvus:
+        condition: service_started
+      neo4j:
+        condition: service_healthy
+    volumes:
+      - ./db:/app/db
     env_file:
       - .env
     networks:
       - biblestudyai-network
+    restart: unless-stopped
 
   # React Frontend (Vite)
   react-frontend:
@@ -61,6 +70,12 @@ services:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - biblestudyai-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   # Redis Stack (includes RedisJSON, RedisSearch, RedisTimeSeries)
   redis-stack:
@@ -74,6 +89,12 @@ services:
       - redis_data:/data
     networks:
       - biblestudyai-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   # Deephaven Server
   deephaven:
@@ -112,6 +133,9 @@ services:
       - "19530:19530"
     volumes:
       - milvus_data:/var/lib/milvus/data
+    depends_on:
+      - etcd
+      - minio
     networks:
       - biblestudyai-network
 
@@ -159,6 +183,20 @@ services:
       - neo4j_data:/data
     networks:
       - biblestudyai-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://localhost:7474",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
 volumes:
   timescaledb_data:

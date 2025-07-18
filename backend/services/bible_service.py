@@ -3,6 +3,7 @@ import pandas as pd
 from pathlib import Path
 from typing import List, Dict, Optional
 from loguru import logger
+from database.timescale_db import get_db
 
 
 class BibleService:
@@ -67,10 +68,3 @@ class BibleService:
             results_df = df[df["text"].str.contains(query, case=False)]
             return results_df.to_dict("records")
         return None
-
-
-# Example usage:
-if __name__ == "__main__":
-    bible_service = BibleService(parquet_dir="KoinoniaHouse/db/bibles/parquet/")
-    print("Available translations:", bible_service.get_translations())
-    print("Books in KJV:", bible_service.get_books("KJV"))

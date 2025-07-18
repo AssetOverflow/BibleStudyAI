@@ -1,8 +1,8 @@
 from loguru import logger
 from neo4j import AsyncSession
 
-from ..services.bible_service import BibleService
-from ..database.neo4j_graph import get_neo4j_session, Neo4jConnection
+from services.bible_service import BibleService
+from database.neo4j_graph import get_neo4j_session, Neo4jConnection
 
 
 async def create_neo4j_constraints(session: AsyncSession):

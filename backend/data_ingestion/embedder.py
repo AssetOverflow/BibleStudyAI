@@ -1,7 +1,7 @@
 from typing import List
 from loguru import logger
 
-from ..services.ai_integration import ai_integration_client, ModelProvider
+from services.ai_integration import ai_integration_client, ModelProvider
 
 
 class Embedder:
@@ -67,7 +67,7 @@ class Embedder:
         Retrieves cached embedding from Redis.
         """
         try:
-            from ..database.redis_cache import RedisManager
+            from database.redis_cache import RedisManager
 
             redis_manager = RedisManager()
             cached_data = await redis_manager.get(cache_key)
@@ -86,7 +86,7 @@ class Embedder:
         Caches embedding in Redis with TTL.
         """
         try:
-            from ..database.redis_cache import RedisManager
+            from database.redis_cache import RedisManager
             import json
 
             redis_manager = RedisManager()

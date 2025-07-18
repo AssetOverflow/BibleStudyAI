@@ -2,13 +2,13 @@ from typing import List, Dict, Any
 import hashlib
 from loguru import logger
 
-from ..database.milvus_vector import MilvusManager
-from ..database.neo4j_graph import Neo4jManager
-from ..database.redis_cache import get_redis_manager
-from ..data_ingestion.embedder import Embedder
-from ..services.ai_integration import ai_integration_client, ModelProvider
-from ..prompts.graph_prompt import ENTITY_EXTRACTION_PROMPT
-from ..utils.config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD
+from database.milvus_vector import MilvusManager
+from database.neo4j_graph import Neo4jManager
+from database.redis_cache import get_redis_manager
+from data_ingestion.embedder import Embedder
+from services.ai_integration import ai_integration_client, ModelProvider
+from prompts.graph_prompt import ENTITY_EXTRACTION_PROMPT
+from utils.config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD
 import json
 
 
@@ -19,10 +19,21 @@ class SearchTools:
 
     def __init__(self):
         logger.info("Initializing SearchTools...")
-        self.milvus_manager = MilvusManager()
-        self.neo4j_manager = Neo4jManager(
-            uri=NEO4J_URI, user=NEO4J_USER, password=NEO4J_PASSWORD
-        )
+        # Initialize components with error handling
+        try:
+            self.milvus_manager = MilvusManager()
+            logger.info("Milvus manager initialized successfully")
+        except Exception as e:
+            logger.warning(f"Failed to initialize Milvus manager: {e}")
+            self.milvus_manager = None
+
+        try:
+            self.neo4j_manager = Neo4jManager()
+            logger.info("Neo4j manager initialized successfully")
+        except Exception as e:
+            logger.warning(f"Failed to initialize Neo4j manager: {e}")
+            self.neo4j_manager = None
+
         self.embedder = Embedder()
         self.redis_manager = get_redis_manager()
         self.collection_name = "bible_verses"
@@ -40,6 +51,11 @@ class SearchTools:
             List[Dict[str, Any]]: A list of search results with enhanced metadata.
         """
         logger.info(f"Performing vector search for query: '{query}'")
+
+        # Check if Milvus is available
+        if self.milvus_manager is None or not self.milvus_manager.is_available():
+            logger.warning("Milvus manager not available, returning empty results")
+            return []
 
         # Create cache key
         query_hash = hashlib.sha256(
@@ -163,6 +179,11 @@ class SearchTools:
             List[Dict[str, Any]]: A list of paths or subgraphs found.
         """
         if not entities:
+            return []
+
+        # Check if Neo4j is available
+        if self.neo4j_manager is None:
+            logger.warning("Neo4j manager not available, returning empty results")
             return []
 
         logger.info(
@@ -379,7 +400,8 @@ class SearchTools:
 
     def close_connections(self):
         """Closes database connections and Redis connection."""
-        self.neo4j_manager.close()
+        if self.neo4j_manager:
+            self.neo4j_manager.close()
         # Note: Redis connection will be closed when the manager is garbage collected
         # or explicitly closed elsewhere
         logger.info("SearchTools connections closed.")

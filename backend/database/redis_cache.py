@@ -4,7 +4,7 @@ from typing import Any, Optional
 import redis.asyncio as redis
 from loguru import logger
 
-from ..utils.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, REDIS_DB
+from utils.config import settings
 
 
 class RedisManager:
@@ -23,10 +23,10 @@ class RedisManager:
         if self.redis_client is None:
             try:
                 self._connection_pool = redis.ConnectionPool(
-                    host=REDIS_HOST,
-                    port=REDIS_PORT,
-                    password=REDIS_PASSWORD,
-                    db=REDIS_DB,
+                    host=settings.REDIS_HOST,
+                    port=settings.REDIS_PORT,
+                    password=settings.REDIS_PASSWORD,
+                    db=settings.REDIS_DB,
                     decode_responses=True,
                     max_connections=20,
                 )

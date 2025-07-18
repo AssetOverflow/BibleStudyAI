@@ -1,4 +1,4 @@
-from neo4j import GraphDatabase
+from database.neo4j_graph import get_neo4j_session
 from typing import Dict, List, Any, Optional
 import asyncio
 from datetime import datetime

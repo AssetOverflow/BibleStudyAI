@@ -1,9 +1,9 @@
 from pymilvus import Collection, CollectionSchema, FieldSchema, DataType, utility
 from loguru import logger
 
-from ..services.ai_integration import ai_integration_client
-from ..services.bible_service import BibleService
-from ..database.milvus_vector import get_milvus_connection
+from services.ai_integration import ai_integration_client
+from services.bible_service import BibleService
+from database.milvus_vector import MilvusManager
 
 COLLECTION_NAME = "bible_verses"
 DIMENSION = 768  # Example dimension for sentence-transformers/all-MiniLM-L6-v2

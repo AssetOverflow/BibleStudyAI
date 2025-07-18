@@ -6,7 +6,7 @@ import os
 from neo4j import AsyncGraphDatabase
 from loguru import logger
 
-from ..utils.config import settings
+from utils.config import settings
 
 
 class Neo4jConnection:
@@ -52,3 +52,49 @@ async def get_neo4j_session():
 
     async with driver.session() as session:
         yield session
+
+
+class Neo4jManager:
+    """
+    Manager class for Neo4j operations.
+    """
+
+    def __init__(self):
+        self.connection = Neo4jConnection()
+
+    async def execute_query(self, query: str, parameters: dict = None):
+        """
+        Execute a Cypher query.
+        """
+        driver = await Neo4jConnection.get_driver()
+        if driver is None:
+            logger.error("Cannot execute query, Neo4j driver is not available.")
+            return None
+
+        async with driver.session() as session:
+            try:
+                result = await session.run(query, parameters or {})
+                return await result.data()
+            except Exception as e:
+                logger.error(f"Error executing Neo4j query: {e}")
+                return None
+
+    async def create_node(self, label: str, properties: dict):
+        """
+        Create a node with the given label and properties.
+        """
+        props_str = ", ".join([f"{k}: ${k}" for k in properties.keys()])
+        query = f"CREATE (n:{label} {{{props_str}}}) RETURN n"
+        return await self.execute_query(query, properties)
+
+    async def find_nodes(self, label: str, properties: dict = None):
+        """
+        Find nodes with the given label and optional properties.
+        """
+        if properties:
+            props_str = " AND ".join([f"n.{k} = ${k}" for k in properties.keys()])
+            query = f"MATCH (n:{label}) WHERE {props_str} RETURN n"
+            return await self.execute_query(query, properties)
+        else:
+            query = f"MATCH (n:{label}) RETURN n"
+            return await self.execute_query(query)

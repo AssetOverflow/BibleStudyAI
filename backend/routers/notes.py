@@ -1,90 +1,99 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 from typing import List
 import uuid
 
-from .. import models, schemas
-from ..database import get_db
-from ..auth.security import get_current_user
+from models import api_models, db_models
+from database.timescale_db import get_db
+from auth.security import get_current_user
 
 router = APIRouter()
 
 
-@router.post("/", response_model=schemas.NoteInDB)
-def create_note(
-    note: schemas.NoteCreate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+@router.post(
+    "/", response_model=api_models.NoteInDB, status_code=status.HTTP_201_CREATED
+)
+async def create_note(
+    note: api_models.NoteCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: db_models.User = Depends(get_current_user),
 ):
-    db_note = models.Note(**note.dict(), user_id=current_user.id)
+    db_note = db_models.Note(**note.dict(), user_id=current_user.id)
     db.add(db_note)
-    db.commit()
-    db.refresh(db_note)
+    await db.commit()
+    await db.refresh(db_note)
     return db_note
 
 
-@router.get("/", response_model=List[schemas.NoteInDB])
-def read_notes(
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+@router.get("/", response_model=List[api_models.NoteInDB])
+async def read_notes(
+    db: AsyncSession = Depends(get_db),
+    current_user: db_models.User = Depends(get_current_user),
 ):
-    return db.query(models.Note).filter(models.Note.user_id == current_user.id).all()
-
-
-@router.get("/{note_id}", response_model=schemas.NoteInDB)
-def read_note(
-    note_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    db_note = (
-        db.query(models.Note)
-        .filter(models.Note.id == note_id, models.Note.user_id == current_user.id)
-        .first()
+    result = await db.execute(
+        select(db_models.Note).filter(db_models.Note.user_id == current_user.id)
     )
+    notes = result.scalars().all()
+    return notes
+
+
+@router.get("/{note_id}", response_model=api_models.NoteInDB)
+async def read_note(
+    note_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: db_models.User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(db_models.Note).filter(
+            db_models.Note.id == note_id, db_models.Note.user_id == current_user.id
+        )
+    )
+    note = result.scalars().first()
+    if note is None:
+        raise HTTPException(status_code=404, detail="Note not found")
+    return note
+
+
+@router.put("/{note_id}", response_model=api_models.NoteInDB)
+async def update_note(
+    note_id: uuid.UUID,
+    note: api_models.NoteUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: db_models.User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(db_models.Note).filter(
+            db_models.Note.id == note_id, db_models.Note.user_id == current_user.id
+        )
+    )
+    db_note = result.scalars().first()
     if db_note is None:
         raise HTTPException(status_code=404, detail="Note not found")
+
+    for key, value in note.dict().items():
+        setattr(db_note, key, value)
+
+    await db.commit()
+    await db.refresh(db_note)
     return db_note
 
 
-@router.put("/{note_id}", response_model=schemas.NoteInDB)
-def update_note(
+@router.delete("/{note_id}", response_model=api_models.NoteInDB)
+async def delete_note(
     note_id: uuid.UUID,
-    note: schemas.NoteUpdate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    current_user: db_models.User = Depends(get_current_user),
 ):
-    db_note = (
-        db.query(models.Note)
-        .filter(models.Note.id == note_id, models.Note.user_id == current_user.id)
-        .first()
+    result = await db.execute(
+        select(db_models.Note).filter(
+            db_models.Note.id == note_id, db_models.Note.user_id == current_user.id
+        )
     )
+    db_note = result.scalars().first()
     if db_note is None:
         raise HTTPException(status_code=404, detail="Note not found")
 
-    for var, value in vars(note).items():
-        setattr(db_note, var, value) if value else None
-
-    db.add(db_note)
-    db.commit()
-    db.refresh(db_note)
-    return db_note
-
-
-@router.delete("/{note_id}", response_model=schemas.NoteInDB)
-def delete_note(
-    note_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    db_note = (
-        db.query(models.Note)
-        .filter(models.Note.id == note_id, models.Note.user_id == current_user.id)
-        .first()
-    )
-    if db_note is None:
-        raise HTTPException(status_code=404, detail="Note not found")
-
-    db.delete(db_note)
-    db.commit()
+    await db.delete(db_note)
+    await db.commit()
     return db_note

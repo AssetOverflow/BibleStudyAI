@@ -84,11 +84,16 @@ class UserInDB(UserBase):
     id: uuid.UUID
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class UserPublic(UserBase):
     id: uuid.UUID
+    name: str
+    email: EmailStr
+
+    class Config:
+        from_attributes = True
 
 
 # Token Schemas

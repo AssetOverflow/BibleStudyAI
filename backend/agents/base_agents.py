@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional, Any, Protocol
 from abc import ABC, abstractmethod
-from ..models.data_models import AgentState, ChuckMisslerPersona
+from models.data_models import AgentState, ChuckMisslerPersona
 from pydantic_ai import Agent
 import asyncio
 

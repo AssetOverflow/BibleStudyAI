@@ -2,8 +2,8 @@ import json
 from typing import Dict, Any
 from loguru import logger
 
-from ..services.ai_integration import ai_integration_client, ModelProvider
-from ..prompts.graph_prompt import GRAPH_GENERATION_PROMPT
+from services.ai_integration import ai_integration_client, ModelProvider
+from prompts.graph_prompt import GRAPH_GENERATION_PROMPT
 
 
 class GraphBuilder:

@@ -9,6 +9,8 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 import json
+import asyncio
+from datetime import datetime
 from loguru import logger
 from contextlib import asynccontextmanager
 
@@ -17,13 +19,18 @@ from utils.config import settings
 from utils.logging import setup_logging
 from models import api_models, db_models
 from services.rag_system import RAGSystem
-from database.timescale_db import engine
-from database.neo4j_graph import Neo4jGraph
-from database.milvus_vector import MilvusVectorDB
-from services.knowledge_graph import KnowledgeGraph
-from services.deephaven_manager import DeephavenManager
-from services.kafka_communication import KafkaManager
-from routers import auth, users, notes, chat, bible
+from database.timescale_db import get_engine
+from database.neo4j_graph import Neo4jManager
+from database.milvus_vector import MilvusManager
+from services.knowledge_graph import BiblicalKnowledgeGraph
+
+# from services.deephaven_manager import DeephavenManager  # Commented out until deephaven is enabled
+# from services.kafka_communication import KafkaManager  # Commented out until redpanda is enabled
+from routers import (
+    auth,
+    notes,
+    bible,
+)  # chat, users  # Import additional routers when ready
 
 # Setup logging
 setup_logging(level="DEBUG", serialize=False)
@@ -37,9 +44,28 @@ async def lifespan(app: FastAPI):
     """Manage application lifespan with proper startup and shutdown."""
     logger.info(f"Starting {settings.PROJECT_NAME}...")
 
-    # Create DB tables if they don't exist
-    async with engine.begin() as conn:
-        await conn.run_sync(db_models.Base.metadata.create_all)
+    # Create DB tables if they don't exist with retry logic
+    engine = get_engine()
+    max_retries = 10
+    retry_delay = 5
+
+    for attempt in range(max_retries):
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(db_models.Base.metadata.create_all)
+            logger.info("Successfully connected to database and created tables")
+            break
+        except Exception as e:
+            if attempt < max_retries - 1:
+                logger.warning(
+                    f"Database connection attempt {attempt + 1} failed: {e}. Retrying in {retry_delay} seconds..."
+                )
+                await asyncio.sleep(retry_delay)
+            else:
+                logger.error(
+                    f"Failed to connect to database after {max_retries} attempts: {e}"
+                )
+                raise
 
     global rag_system
     try:
@@ -81,6 +107,8 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/auth", tags=["authentication"])
 app.include_router(notes.router, prefix="/api/notes", tags=["notes"])
 app.include_router(bible.router, prefix="/api/bible", tags=["bible"])
+# app.include_router(chat.router, prefix="/api/chat", tags=["chat"])  # Enable when chat router is ready
+# app.include_router(users.router, prefix="/api/users", tags=["users"])  # Enable when users router is ready
 
 
 # Core RAG API Endpoint
