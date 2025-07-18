@@ -1,0 +1,94 @@
+/** @format */
+
+.chat-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  height: 100%;
+}
+
+.history-header {
+  padding: 0.5rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.history-header h3 {
+  font-family: "Marcellus SC", serif;
+  color: var(--gold-accent);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  margin: 0;
+  font-size: 1.2em;
+  text-align: center;
+}
+
+.history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  background-color: rgba(0, 0, 0, 0.1);
+  transition: background-color 0.3s ease;
+  position: relative;
+}
+
+.history-item:hover {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+.item-title {
+  font-size: 0.9em;
+  color: var(--gold-accent-dark); /* Use dark gold color */
+  font-weight: bold; /* Make it bold */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.item-actions button {
+  background: none;
+  border: none;
+  color: var(--secondary-brown); /* Match user profile icon color */
+  cursor: pointer;
+  font-size: 1.2em;
+  padding: 0.25rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.item-actions button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: var(--gold-accent);
+}
+
+.action-menu {
+  position: absolute;
+  top: 2.5rem;
+  right: 0.5rem;
+  background-color: var(--secondary-brown);
+  border: 1px solid #000;
+  border-radius: 5px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+  z-index: 20;
+  overflow: hidden;
+  padding: 0.5rem 0;
+}
+
+.action-menu-item {
+  background: none;
+  border: none;
+  color: var(--parchment-bg);
+  padding: 0.5rem 1.5rem;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.8em; /* Adjusted font size */
+}
+
+.action-menu-item:hover {
+  background-color: var(--gold-accent);
+  color: var(--primary-brown);
+}

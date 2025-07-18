@@ -1,0 +1,4 @@
+-- Initialize TimescaleDB's PGVectorscale extension
+-- It will also make the most of all of the pgvectorscale advanced features PLUS its already cutting-edge features combined with TimescaleDB's powerful time-series capabilities to handle Biblical data with ease and never before seen performance and capabilities paired with the latest cutting-edge ai models (LLMs) as well as it being utilized in conjunction with the latest cutting-edge (KG) knowledge graphs (i.e. Neo4j; enhanced with Graphiti) AND a milvus vector database!
+CREATE EXTENSION IF NOT EXISTS vector CASCADE;
+CREATE EXTENSION IF NOT EXISTS vectorscale CASCADE;
