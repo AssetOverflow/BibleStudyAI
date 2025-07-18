@@ -29,7 +29,7 @@ services:
     env_file:
       - .env
     networks:
-      - chuck-missler-network
+      - biblestudyai-network
 
   # React Frontend (Vite)
   react-frontend:
@@ -44,7 +44,7 @@ services:
     depends_on:
       - fastapi-backend
     networks:
-      - chuck-missler-network
+      - biblestudyai-network
 
   # TimescaleDB with pgvectorscale
   timescaledb:
@@ -60,7 +60,7 @@ services:
       - timescaledb_data:/var/lib/postgresql/data
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
-      - chuck-missler-network
+      - biblestudyai-network
 
   # Redis Stack (includes RedisJSON, RedisSearch, RedisTimeSeries)
   redis-stack:
@@ -73,7 +73,7 @@ services:
     volumes:
       - redis_data:/data
     networks:
-      - chuck-missler-network
+      - biblestudyai-network
 
   # Deephaven Server
   deephaven:
@@ -83,7 +83,7 @@ services:
     environment:
       - START_OPTS=-Xmx4g -DAuthHandlers=io.deephaven.auth.AnonymousAuthenticationHandler
     networks:
-      - chuck-missler-network
+      - biblestudyai-network
 
   # Redpanda Kafka
   redpanda:
@@ -99,7 +99,7 @@ services:
     volumes:
       - redpanda_data:/var/lib/redpanda/data
     networks:
-      - chuck-missler-network
+      - biblestudyai-network
 
   # Milvus Vector Database
   milvus:
@@ -111,26 +111,9 @@ services:
     ports:
       - "19530:19530"
     volumes:
-      - milvus_data:/var/lib/milvus
-    depends_on:
-      - etcd
-      - minio
+      - milvus_data:/var/lib/milvus/data
     networks:
-      - chuck-missler-network
-
-  # Etcd for Milvus
-  etcd:
-    image: quay.io/coreos/etcd:v3.5.0
-    environment:
-      - ETCD_AUTO_COMPACTION_MODE=revision
-      - ETCD_AUTO_COMPACTION_RETENTION=1000
-      - ETCD_QUOTA_BACKEND_BYTES=4294967296
-      - ETCD_SNAPSHOT_COUNT=50000
-    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
-    volumes:
-      - etcd_data:/etcd
-    networks:
-      - chuck-missler-network
+      - biblestudyai-network
 
   # MinIO for Milvus
   minio:
@@ -142,11 +125,25 @@ services:
     ports:
       - "9000:9000"
     volumes:
-      - minio_data:/minio_data
+      - minio_data:/data
     networks:
-      - chuck-missler-network
+      - biblestudyai-network
 
-  # Neo4j Knowledge Graph
+  # etcd for Milvus
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.0
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=50000
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+    volumes:
+      - etcd_data:/etcd
+    networks:
+      - biblestudyai-network
+
+  # Neo4j Graph Database
   neo4j:
     image: neo4j:5
     environment:
@@ -160,10 +157,8 @@ services:
       - "7687:7687"
     volumes:
       - neo4j_data:/data
-      - neo4j_logs:/logs
-      - neo4j_plugins:/plugins
     networks:
-      - chuck-missler-network
+      - biblestudyai-network
 
 volumes:
   timescaledb_data:
@@ -173,9 +168,7 @@ volumes:
   etcd_data:
   minio_data:
   neo4j_data:
-  neo4j_logs:
-  neo4j_plugins:
 
 networks:
-  chuck-missler-network:
+  biblestudyai-network:
     driver: bridge

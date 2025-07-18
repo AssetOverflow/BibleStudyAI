@@ -1,4 +1,5 @@
 import asyncio
+from typing import List
 from loguru import logger
 import pandas as pd
 from tqdm import tqdm
@@ -82,60 +83,95 @@ class IngestionPipeline:
                 chapter = row["chapter"]
                 text = row["text"]
 
-                # 3. Chunk Text
-                chunks = self.chunker.chunk(text)
-
-                for i, chunk_text in enumerate(
-                    tqdm(chunks, desc="Processing Chunks", leave=False)
-                ):
-                    chunk_id = f"{translation}_{book}_{chapter}_{i}"
-
-                    # 4. Generate Embeddings and Graph
-                    embedding_task = self.embedder.embed_text(chunk_text)
-                    graph_task = self.graph_builder.build_graph_from_text(chunk_text)
-
-                    embedding, graph_data = await asyncio.gather(
-                        embedding_task, graph_task
-                    )
-
-                    if embedding is None:
-                        logger.warning(
-                            f"Skipping chunk {chunk_id} due to embedding failure."
-                        )
-                        continue
-
-                    # 5. Ingest into Databases
-                    # Ingest into Milvus
-                    metadata = {
-                        "translation": translation,
-                        "book": book,
-                        "chapter": chapter,
-                        "chunk_index": i,
-                    }
-                    self.milvus_manager.insert_entity(
-                        collection_name=self.collection_name,
-                        data=[
-                            {
-                                "id": chunk_id,
-                                "vector": embedding,
-                                "text": chunk_text,
-                                **metadata,
-                            }
-                        ],
-                    )
-
-                    # Ingest into Neo4j
-                    if (
-                        graph_data
-                        and graph_data.get("nodes")
-                        and graph_data.get("edges")
+                    # 4. Generate Embeddings and Graph in parallel with batching
+                    chunk_batch = []
+                    chunk_metadata_batch = []
+                    
+                    for i, chunk_text in enumerate(
+                        tqdm(chunks, desc="Processing Chunks", leave=False)
                     ):
-                        self.neo4j_manager.add_graph_from_json(graph_data)
+                        chunk_id = f"{translation}_{book}_{chapter}_{i}"
+                        metadata = {
+                            "translation": translation,
+                            "book": book,
+                            "chapter": chapter,
+                            "chunk_index": i,
+                        }
+                        
+                        chunk_batch.append(chunk_text)
+                        chunk_metadata_batch.append((chunk_id, metadata))
+                        
+                        # Process in batches of 10 for better performance
+                        if len(chunk_batch) >= 10 or i == len(chunks) - 1:
+                            await self._process_chunk_batch(
+                                chunk_batch, chunk_metadata_batch
+                            )
+                            chunk_batch = []
+                            chunk_metadata_batch = []
 
         logger.info("Data ingestion process completed.")
         self.milvus_manager.flush(self.collection_name)
         self.neo4j_manager.close()
         logger.info("Database connections closed.")
+
+    async def _process_chunk_batch(self, chunk_batch: List[str], metadata_batch: List[tuple]):
+        """
+        Processes a batch of chunks efficiently with parallel embedding and graph generation.
+        
+        Args:
+            chunk_batch: List of text chunks to process
+            metadata_batch: List of (chunk_id, metadata) tuples
+        """
+        # Generate embeddings for the entire batch
+        embeddings = await self.embedder.get_embeddings(chunk_batch)
+        
+        # Generate graph data in parallel
+        graph_tasks = [
+            self.graph_builder.build_graph_from_text(chunk_text) 
+            for chunk_text in chunk_batch
+        ]
+        graph_results = await asyncio.gather(*graph_tasks, return_exceptions=True)
+        
+        # Process results and ingest into databases
+        milvus_batch_data = []
+        
+        for i, (chunk_text, (chunk_id, metadata)) in enumerate(zip(chunk_batch, metadata_batch)):
+            # Handle embedding
+            if i < len(embeddings) and embeddings[i] is not None:
+                milvus_data = {
+                    "id": chunk_id,
+                    "vector": embeddings[i],
+                    "text": chunk_text,
+                    **metadata,
+                }
+                milvus_batch_data.append(milvus_data)
+            else:
+                logger.warning(f"Skipping chunk {chunk_id} due to embedding failure.")
+                continue
+            
+            # Handle graph data
+            if i < len(graph_results) and not isinstance(graph_results[i], Exception):
+                graph_data = graph_results[i]
+                if (
+                    graph_data
+                    and graph_data.get("nodes")
+                    and graph_data.get("edges")
+                ):
+                    try:
+                        self.neo4j_manager.add_graph_from_json(graph_data)
+                    except Exception as e:
+                        logger.error(f"Failed to add graph data for chunk {chunk_id}: {e}")
+        
+        # Batch insert into Milvus
+        if milvus_batch_data:
+            try:
+                self.milvus_manager.insert_entity(
+                    collection_name=self.collection_name,
+                    data=milvus_batch_data
+                )
+                logger.debug(f"Successfully ingested batch of {len(milvus_batch_data)} chunks")
+            except Exception as e:
+                logger.error(f"Failed to ingest batch into Milvus: {e}")
 
     def setup_databases(self):
         """

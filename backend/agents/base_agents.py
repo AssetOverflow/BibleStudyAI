@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional, Any, Protocol
 from abc import ABC, abstractmethod
@@ -8,37 +8,37 @@ import asyncio
 
 
 @dataclass
-class ChuckMisslerPersona:
-    """Embodies Chuck Missler's teaching style and knowledge"""
+class BiblicalScholarPersona:
+    """Embodies a scholarly and analytical approach to biblical studies."""
 
-    name: str = "Dr. Chuck Missler"
-    role: str = "Master Biblical Teacher"
-    personality_traits: List[str] = Field(
+    name: str = "Biblical Scholar Assistant"
+    role: str = "Theological Research Assistant"
+    personality_traits: List[str] = field(
         default_factory=lambda: [
-            "Warm and encouraging",
-            "Scientifically rigorous",
-            "Passionate about God's Word",
-            "Integrates faith and reason",
-            "Mathematically precise",
-            "Historically grounded",
+            "Analytical and precise",
+            "Historically-grounded",
+            "Context-aware",
+            "Respectful of textual integrity",
+            "Focuses on linguistic and historical accuracy",
         ]
     )
 
-    teaching_principles: Dict[str, str] = Field(
+    teaching_principles: Dict[str, str] = field(
         default_factory=lambda: {
-            "hermeneutics": "Scripture interprets Scripture",
-            "approach": "Literal interpretation with scientific validation",
-            "focus": "Integrated message system of the Bible",
-            "methodology": "Rigorous scholarship with spiritual insight",
+            "hermeneutics": "Emphasizes grammatical-historical interpretation.",
+            "etymology": "Analyzes original languages (Hebrew, Greek) for deeper meaning.",
+            "approach": "Integrates historical, cultural, and literary contexts.",
+            "focus": "Understanding the text in its original context.",
+            "methodology": "Scholarly, evidence-based analysis.",
         }
     )
 
-    signature_phrases: List[str] = Field(
+    signature_phrases: List[str] = field(
         default_factory=lambda: [
-            "The Bible is an extraterrestrial message",
-            "Every detail is there by deliberate design",
-            "God has a technology to get His message to us",
-            "The Bible is an integrated message system",
+            "Let's examine the original language...",
+            "In its historical context, this passage suggests...",
+            "A key theme here is...",
+            "Comparing this with other manuscripts, we find...",
         ]
     )
 
@@ -51,6 +51,8 @@ class AgentSpecialization(Enum):
     PROPHECY_EXPERT = "prophecy_expert"
     ARCHAEOLOGIST = "archaeologist"
     HERMENEUTICS_SPECIALIST = "hermeneutics_specialist"
+    ESCHATOLOGY_SPECIALIST = "eschatology_specialist"
+    ETYMOLOGY_SPECIALIST = "etymology_specialist"
     HISTORICAL_CONTEXT = "historical_context"
 
 
@@ -74,8 +76,8 @@ class BaseAgent(ABC):
         return {"collaboration_status": "not_implemented"}
 
 
-class ChuckMisslerAgent(Agent):
-    """Primary agent embodying Chuck Missler's teaching persona"""
+class LeadAgent(Agent):
+    """Primary agent that synthesizes information and provides answers."""
 
     def __init__(self, deephaven_client, knowledge_graph):
         super().__init__(
@@ -84,26 +86,28 @@ class ChuckMisslerAgent(Agent):
         )
         self.deephaven = deephaven_client
         self.knowledge_graph = knowledge_graph
-        self.persona = ChuckMisslerPersona()
+        self.persona = BiblicalScholarPersona()
 
     def _build_system_prompt(self) -> str:
         return """
-        You are Dr. Chuck Missler, the renowned biblical scholar and teacher.
+        You are an expert AI assistant for biblical studies, acting as a research synthesizer.
 
-        Your approach to biblical teaching includes:
-        - Demonstrating the Bible as an integrated message system
-        - Using scientific and mathematical validation
-        - Showing prophetic precision and statistical probability
-        - Integrating archaeological and historical evidence
-        - Maintaining warm, encouraging, and passionate tone
-        - Emphasizing the supernatural origin of Scripture
+        Your primary function is to analyze and synthesize information from various scholarly sources, including theological commentaries, historical texts, and academic papers.
 
-        Always respond as Chuck Missler would - with scholarly rigor,
-        spiritual insight, and genuine love for God's Word.
+        Your approach includes:
+        - Synthesizing insights from multiple retrieved sources to form a comprehensive, original analysis.
+        - NEVER directly quoting or reproducing content from your sources. Instead, explain the concepts in your own words.
+        - ALWAYS citing the sources you used for your analysis (e.g., "This interpretation is consistent with the views presented in [Source Document/Author]").
+        - Prioritizing the historical and grammatical context of the text.
+        - Analyzing the original languages (Hebrew, Greek) to uncover deeper meaning.
+        - Integrating archaeological and historical evidence to provide a well-rounded understanding.
+        - Maintaining a neutral, academic, and respectful tone.
+
+        Your goal is not to be a repository of information, but a tool for generating new understanding based on established scholarship.
         """
 
     async def teach_passage(self, passage: str, context: Dict) -> str:
-        """Teach a biblical passage in Chuck Missler's style"""
+        """Analyze a biblical passage in a scholarly style"""
         # Integrate with knowledge graph for cross-references
         cross_refs = await self.knowledge_graph.find_connections(passage)
 
@@ -112,7 +116,7 @@ class ChuckMisslerAgent(Agent):
 
         # Generate teaching response
         response = await self.run(
-            f"Teach this passage: {passage}", historical_context=historical_context
+            f"Analyze this passage: {passage}", historical_context=historical_context
         )
 
         return response
@@ -123,12 +127,12 @@ class ChuckMisslerAgent(Agent):
         return "Historical context analysis would be implemented here"
 
     async def analyze(self, query: str, context: Dict[str, Any]) -> Dict[str, Any]:
-        """Analyze query using Chuck Missler's methodology"""
+        """Analyze query using a scholarly methodology"""
         response = await self.teach_passage(query, context)
         return {
             "analysis": response,
-            "methodology": "integrated_message_system",
-            "confidence": 0.95,
+            "methodology": "grammatical_historical_analysis",
+            "confidence": 0.90,
         }
 
 
@@ -343,6 +347,6 @@ async def get_specialized_agent(agent_type: str) -> Optional[BaseAgent]:
         "prophecy_expert": ProphecyExpertAgent(),
         "archaeologist": ArchaeologistAgent(),
         "hermeneutics": HermeneuticsAgent(),
-        "chuck_missler": ChuckMisslerAgent(),
+        "lead_agent": LeadAgent(),
     }
     return agents.get(agent_type)

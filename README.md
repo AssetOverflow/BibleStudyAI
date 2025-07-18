@@ -1,156 +1,111 @@
-# KoinoniaHouse
+<!-- @format -->
 
-A modern full-stack application for biblical study and analysis, featuring a React frontend and FastAPI backend with advanced AI integration.
+# BibleStudyAI
 
-## 🚀 Features
+This project is an AI-powered biblical studies platform designed to assist users in their research and understanding of the Bible. It leverages a sophisticated agentic RAG (Retrieval-Augmented Generation) system, a knowledge graph, and multiple specialized AI agents to provide comprehensive and context-aware answers to user queries.
 
-- **Interactive Bible Explorer**: Modern interface for biblical text exploration
-- **AI-Powered Chat**: Intelligent conversation system for biblical insights
-- **Knowledge Graph**: Visual representation of biblical connections and relationships
-- **Note Taking System**: Comprehensive note management for study sessions
-- **Study Groups**: Collaborative learning environment
-- **Prophecy Lab**: Advanced analytical tools for prophetic studies
+## Table of Contents
 
-## 🏗️ Architecture
+- [Features](#features)
+- [System Architecture](#system-architecture)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+- [Usage](#usage)
+  - [Running the Application](#running-the-application)
+  - [API Endpoints](#api-endpoints)
+- [Project Structure](#project-structure)
+- [Contributing](#contributing)
+- [License](#license)
 
-### Backend (FastAPI)
-- **Framework**: FastAPI with Python 3.11
-- **Database**: TimescaleDB (PostgreSQL with time-series extensions)
-- **Vector Database**: Milvus for semantic search
-- **Graph Database**: Neo4j for relationship mapping
-- **Message Queue**: Kafka/RedPanda for event streaming
-- **Caching**: Redis Stack
-- **Analytics**: Deephaven for real-time data analysis
+## Features
 
-### Frontend (React + Vite)
-- **Framework**: React 19 with TypeScript
-- **Build Tool**: Vite 7
-- **Styling**: CSS with modern design patterns
-- **Icons**: React Icons
-- **Animations**: Framer Motion
-- **Charts**: Chart.js for data visualization
+- **Agentic RAG System**: A multi-agent system where specialized AI agents collaborate to provide well-rounded answers.
+- **Knowledge Graph**: Utilizes a Neo4j graph database to store and retrieve relationships between biblical entities, concepts, and passages.
+- **Vector Search**: Employs Milvus for efficient similarity search on biblical texts.
+- **Hybrid Search**: Combines keyword, vector, and graph-based search for optimal retrieval.
+- **User Authentication**: Secure user authentication using JWT and Argon2 password hashing.
+- **Real-time Monitoring**: Integrated with Deephaven for real-time monitoring of agent interactions.
+- **Scalable Architecture**: Built with FastAPI, Docker, and a suite of modern database technologies.
 
-## 🛠️ Quick Start
+## System Architecture
+
+The system is composed of the following key components:
+
+- **FastAPI Backend**: The core of the application, providing a RESTful API for user interaction and agent orchestration.
+- **React Frontend**: A user-friendly interface for interacting with the AI agents.
+- **TimescaleDB**: A PostgreSQL database for storing structured data, such as user information and notes.
+- **Milvus**: A vector database for storing and searching text embeddings.
+- **Neo4j**: A graph database for the knowledge graph.
+- **Redis**: Used for caching and as a message broker.
+- **Redpanda**: A Kafka-compatible streaming platform for asynchronous communication between agents.
+- **Deephaven**: A real-time analytics engine for monitoring agent activity.
+
+## Getting Started
 
 ### Prerequisites
-- Docker & Docker Compose
-- Git
+
+- Docker and Docker Compose
+- Python 3.11
+- Node.js and npm
+- An OpenAI API key
 
 ### Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone <your-repo-url>
-   cd KoinoniaHouse
-   ```
+1.  **Clone the repository:**
 
-2. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
+    ```bash
+    git clone https://github.com/AssetOverflow/BibleStudyAI.git
+    cd BibleStudyAI
+    ```
 
-3. **Start the application**
-   ```bash
-   docker compose up --build -d
-   ```
+2.  **Set up environment variables:**
 
-4. **Access the application**
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8000
-   - API Documentation: http://localhost:8000/docs
+    Create a `.env` file in the root of the project and add the following:
 
-## 🔧 Development
+    ```env
+    OPENAI_API_KEY=your_openai_api_key
+    ```
 
-### Backend Development
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn main:app --reload
-```
+3.  **Build and run the application:**
 
-### Frontend Development
-```bash
-cd frontend
-npm install
-npm run dev
-```
+    ```bash
+    docker-compose up --build
+    ```
 
-## 📦 Services
+## Usage
 
-The application consists of multiple containerized services:
+### Running the Application
 
-- **fastapi-backend**: Main API server
-- **react-frontend**: User interface
-- **timescaledb**: Primary database with vector extensions
-- **milvus**: Vector database for semantic search
-- **neo4j**: Graph database for relationships
-- **redis-stack**: Caching and session management
-- **redpanda**: Message streaming
-- **deephaven**: Real-time analytics
+Once the containers are running, you can access the application at `http://localhost:3000`.
 
-## 🔑 Environment Variables
+### API Endpoints
 
-Create a `.env` file with the following variables:
+The API documentation is available at `http://localhost:8000/docs`.
 
-```env
-# Database
-POSTGRES_USER=your_db_user
-POSTGRES_PASSWORD=your_db_password
-POSTGRES_DB=koinonia_house
-POSTGRES_PORT=5432
+Key endpoints include:
 
-# Redis
-REDIS_PASSWORD=your_redis_password
-REDIS_PORT=6379
+- `POST /users/`: Create a new user.
+- `POST /token`: Obtain a JWT token for authentication.
+- `POST /chat/`: Interact with the AI agents.
 
-# AI Services
-OPENAI_API_KEY=your_openai_key
-XAI_API_KEY=your_xai_key
-```
+## Project Structure
 
-## 📁 Project Structure
+The project is organized into the following directories:
 
 ```
-KoinoniaHouse/
-├── backend/                 # FastAPI backend
-│   ├── agents/             # AI agent implementations
-│   ├── database/           # Database connections and models
-│   ├── models/             # Pydantic models
-│   ├── services/           # Business logic services
-│   └── utils/              # Utility functions
-├── frontend/               # React frontend
-│   ├── src/
-│   │   ├── components/     # React components
-│   │   ├── assets/         # Static assets
-│   │   └── memory/         # Memory management
-├── db/                     # Database initialization
-├── docker-compose.yml      # Service orchestration
-└── ProjectDesign/          # Documentation and design docs
+BibleStudyAI/
+├── backend/         # FastAPI backend
+├── frontend/        # React frontend
+├── db/              # Database initialization scripts
+├── docker-compose.yml
+└── README.md
 ```
 
-## 🤝 Contributing
+## Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+Contributions are welcome! Please feel free to submit a pull request or open an issue.
 
-## 📄 License
+## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🔗 Links
-
-- [Documentation](./ProjectDesign/)
-- [API Documentation](http://localhost:8000/docs) (when running)
-- [Issue Tracker](https://github.com/your-username/KoinoniaHouse/issues)
-
-## 🙏 Acknowledgments
-
-- Built with modern web technologies
-- Inspired by the need for advanced biblical study tools
-- Community-driven development
+This project is licensed under the MIT License. See the `LICENSE` file for details.

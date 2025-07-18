@@ -27,40 +27,72 @@ class Embedder:
             f"Embedder initialized with provider: {provider.value}, model: {model}"
         )
 
-    async def get_embeddings(self, texts: List[str]) -> List[List[float]]:
+    async def embed_text(self, text: str) -> List[float]:
         """
-        Generates embeddings for a list of text chunks.
+        Generates an embedding for a single text chunk with caching.
 
         Args:
-            texts (List[str]): A list of text chunks to embed.
+            text (str): The text chunk to embed.
 
         Returns:
-            List[List[float]]: A list of embeddings, where each embedding is a list of floats.
+            List[float]: The embedding vector, or None if generation failed.
         """
-        if not texts:
-            return []
+        if not text:
+            return None
 
         try:
-            # The get_embedding method in AIIntegration is designed to handle a single string,
-            # but the underlying OpenAI client can handle a list. We'll call it in a loop for now,
-            # but this could be optimized to make a single batch call to the provider.
-            embeddings = []
-            for text in texts:
-                embedding = await ai_integration_client.get_embedding(
-                    text=text, provider=self.provider, model=self.model
-                )
-                if embedding:
-                    embeddings.append(embedding)
+            # Check cache first
+            cache_key = f"embedding:{hash(text)}"
+            cached_embedding = await self._get_cached_embedding(cache_key)
+            if cached_embedding:
+                logger.debug(f"Using cached embedding for text: {text[:50]}...")
+                return cached_embedding
 
-            if len(embeddings) != len(texts):
-                logger.warning(
-                    "Number of generated embeddings does not match number of input texts."
-                )
+            # Generate new embedding
+            embedding = await ai_integration_client.get_embedding(
+                text=text, provider=self.provider, model=self.model
+            )
 
-            return embeddings
+            # Cache the result
+            if embedding:
+                await self._cache_embedding(cache_key, embedding)
+
+            return embedding
         except Exception as e:
-            logger.opt(exception=True).error(f"Failed to generate embeddings: {e}")
-            return []
+            logger.opt(exception=True).error(f"Failed to generate embedding: {e}")
+            return None
+
+    async def _get_cached_embedding(self, cache_key: str) -> List[float]:
+        """
+        Retrieves cached embedding from Redis.
+        """
+        try:
+            from ..database.redis_cache import RedisManager
+
+            redis_manager = RedisManager()
+            cached_data = await redis_manager.get(cache_key)
+            if cached_data:
+                import json
+
+                return json.loads(cached_data)
+        except Exception as e:
+            logger.debug(f"Cache miss or error: {e}")
+        return None
+
+    async def _cache_embedding(
+        self, cache_key: str, embedding: List[float], ttl: int = 86400
+    ):
+        """
+        Caches embedding in Redis with TTL.
+        """
+        try:
+            from ..database.redis_cache import RedisManager
+            import json
+
+            redis_manager = RedisManager()
+            await redis_manager.set(cache_key, json.dumps(embedding), ttl)
+        except Exception as e:
+            logger.debug(f"Failed to cache embedding: {e}")
 
 
 # Example usage:

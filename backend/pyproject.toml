@@ -8,14 +8,15 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
-fastapi = "^0.110.0"
-uvicorn = {extras = ["standard"], version = "^0.27.1"}
+fastapi = "^0.111.0"
+uvicorn = {extras = ["standard"], version = "^0.29.0"}
 sqlalchemy = {extras = ["asyncio"], version = "^2.0.28"}
 asyncpg = "^0.29.0"
-pydantic = {extras = ["email"], version = "^2.6.4"}
+pydantic = {extras = ["email"], version = "^2.7.1"}
+pydantic-settings = "^2.2.1"
 loguru = "^0.7.2"
 python-jose = {extras = ["cryptography"], version = "^3.3.0"}
-passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+passlib = {extras = ["argon2"], version = "^1.7.4"}
 pyarrow = "^15.0.0"
 pandas = "^2.2.1"
 pymilvus = "^2.4.1"
@@ -25,6 +26,10 @@ anthropic = "^0.25.0"
 graphiti-core = "^0.12.0"  # Updated to latest available version
 tqdm = "^4.66.2"
 python-dotenv = "^1.0.1"
+redis = "^5.0.0"
+fastparquet = "^2024.0.0"
+kafka-python = "^2.2.14"
+aiokafka = "^0.9.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.1.1"

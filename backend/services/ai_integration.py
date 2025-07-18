@@ -122,6 +122,66 @@ class AIIntegration:
             logger.error(f"Error generating embedding with {provider.value}: {e}")
             return []
 
+    async def get_embeddings_batch(
+        self,
+        texts: List[str],
+        provider: ModelProvider = ModelProvider.OPENAI,
+        model: str = "text-embedding-3-small",
+        batch_size: int = 100,
+    ) -> List[List[float]]:
+        """
+        Generates embeddings for multiple texts efficiently using batch processing.
+
+        Args:
+            texts: List of texts to embed.
+            provider: The AI model provider to use.
+            model: The embedding model to use.
+            batch_size: Maximum number of texts to process in a single API call.
+
+        Returns:
+            A list of embedding vectors.
+        """
+        if not texts:
+            return []
+
+        try:
+            all_embeddings = []
+
+            if provider == ModelProvider.OPENAI:
+                # Process in batches to respect API limits
+                for i in range(0, len(texts), batch_size):
+                    batch = texts[i : i + batch_size]
+
+                    response = await self.openai_client.embeddings.create(
+                        input=batch, model=model
+                    )
+
+                    batch_embeddings = [data.embedding for data in response.data]
+                    all_embeddings.extend(batch_embeddings)
+
+                    logger.debug(
+                        f"Generated embeddings for batch {i//batch_size + 1}, size: {len(batch)}"
+                    )
+
+                return all_embeddings
+            else:
+                logger.warning(
+                    f"Batch embedding not supported for provider: {provider}"
+                )
+                # Fallback to individual embeddings
+                embeddings = []
+                for text in texts:
+                    embedding = await self.get_embedding(text, provider, model)
+                    if embedding:
+                        embeddings.append(embedding)
+                return embeddings
+
+        except Exception as e:
+            logger.error(
+                f"Error generating batch embeddings with {provider.value}: {e}"
+            )
+            return []
+
 
 # A single instance to be used throughout the application
 ai_integration_client = AIIntegration()

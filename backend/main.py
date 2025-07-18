@@ -13,12 +13,17 @@ from loguru import logger
 from contextlib import asynccontextmanager
 
 # Import project modules
-from .utils.config import settings
-from .utils.logging import setup_logging
-from .models import api_models, db_models
-from .services.rag_system import RAGSystem
-from .database.timescale_db import engine
-from .routers import bible, auth, notes
+from utils.config import settings
+from utils.logging import setup_logging
+from models import api_models, db_models
+from services.rag_system import RAGSystem
+from database.timescale_db import engine
+from database.neo4j_graph import Neo4jGraph
+from database.milvus_vector import MilvusVectorDB
+from services.knowledge_graph import KnowledgeGraph
+from services.deephaven_manager import DeephavenManager
+from services.kafka_communication import KafkaManager
+from routers import auth, users, notes, chat, bible
 
 # Setup logging
 setup_logging(level="DEBUG", serialize=False)
