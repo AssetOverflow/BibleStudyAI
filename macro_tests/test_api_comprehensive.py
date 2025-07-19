@@ -7,11 +7,7 @@ Tests all available endpoints and validates responses.
 import requests
 import json
 import time
-    # Create note
-    note_data = {
-        "title": "Test Note",
-        "content": "This is a test note about John 3:16"
-    }yping import Dict, Any, Optional
+from typing import Dict, Any, Optional
 
 # Configuration
 BASE_URL = "http://localhost:8000"
@@ -19,20 +15,26 @@ HEADERS = {"Content-Type": "application/json"}
 
 
 def make_request(
-    method: str, endpoint: str, data: Optional[Dict] = None
+    method: str,
+    endpoint: str,
+    data: Optional[Dict] = None,
+    headers: Optional[Dict] = None,
 ) -> Dict[str, Any]:
     """Make HTTP request and return structured response"""
     url = f"{BASE_URL}{endpoint}"
+    request_headers = HEADERS.copy()
+    if headers:
+        request_headers.update(headers)
 
     try:
         if method.upper() == "GET":
-            response = requests.get(url, headers=HEADERS)
+            response = requests.get(url, headers=request_headers)
         elif method.upper() == "POST":
-            response = requests.post(url, headers=HEADERS, json=data)
+            response = requests.post(url, headers=request_headers, json=data)
         elif method.upper() == "PUT":
-            response = requests.put(url, headers=HEADERS, json=data)
+            response = requests.put(url, headers=request_headers, json=data)
         elif method.upper() == "DELETE":
-            response = requests.delete(url, headers=HEADERS)
+            response = requests.delete(url, headers=request_headers)
         else:
             raise ValueError(f"Unsupported method: {method}")
 
@@ -137,51 +139,52 @@ def test_bible_endpoints():
 
 def test_auth_endpoints():
     """Test authentication endpoints"""
-    print("
-" + "=" * 60)
-    print("TESTING AUTH ENDPOINTS") 
+    print("\n" + "=" * 60)
+    print("TESTING AUTH ENDPOINTS")
     print("=" * 60)
-    
-    # Use timestamp to ensure unique email
-    import time
-    timestamp = int(time.time())
-    unique_email = f"test{timestamp}@example.com"
-    
+
+    # Generate unique email for this test run
+    unique_email = f"test{int(time.time())}@example.com"
+
     # Register user
     user_data = {
         "email": unique_email,
-        "name": f"Test User {timestamp}", 
-        "password": "testpassword123"
+        "name": "Test User",
+        "password": "testpassword123",
     }
     result = make_request("POST", "/auth/register", user_data)
     print_test_result("Register user", result, 201)
-    
+
     # Login
     login_data = {
         "email": unique_email,
-        "name": f"Test User {timestamp}",  # Required by UserCreate model
-        "password": "testpassword123"
+        "name": "Test User",
+        "password": "testpassword123",
     }
     result = make_request("POST", "/auth/login", login_data)
     print_test_result("Login user", result)
-    
+
     # Extract token for authenticated requests
     token = None
     if result.get("success") and result.get("data"):
         token = result["data"].get("access_token")
         if token:
             print(f"   Token obtained: {token[:20]}...")
-    
+
     return token
+
+
 def test_notes_endpoints(token: Optional[str] = None):
     """Test notes endpoints"""
     print("\n" + "=" * 60)
     print("TESTING NOTES ENDPOINTS")
     print("=" * 60)
 
-    auth_headers = HEADERS.copy()
-    if token:
-        auth_headers["Authorization"] = f"Bearer {token}"
+    if not token:
+        print("   Skipping notes tests: No auth token provided.")
+        return
+
+    auth_headers = {"Authorization": f"Bearer {token}"}
 
     # Create note
     note_data = {
@@ -189,30 +192,29 @@ def test_notes_endpoints(token: Optional[str] = None):
         "content": "This is a test note about John 3:16",
         "reference": "John 3:16",
     }
+    result = make_request("POST", "/api/notes/", data=note_data, headers=auth_headers)
+    print_test_result("Create note", result, 201)
+    note_id = result.get("data", {}).get("id") if result.get("success") else None
 
-    try:
-        url = f"{BASE_URL}/api/notes/"
-        response = requests.post(url, headers=auth_headers, json=note_data)
-        result = {
-            "status_code": response.status_code,
-            "success": response.status_code < 400,
-            "data": response.json() if response.content else None,
-            "url": url,
-        }
-        print_test_result("Create note", result, 201)
+    # Get notes
+    result = make_request("GET", "/api/notes/", headers=auth_headers)
+    print_test_result("Get notes", result)
 
-        # Get notes
-        response = requests.get(f"{BASE_URL}/api/notes/", headers=auth_headers)
-        result = {
-            "status_code": response.status_code,
-            "success": response.status_code < 400,
-            "data": response.json() if response.content else None,
-            "url": f"{BASE_URL}/api/notes/",
-        }
-        print_test_result("Get notes", result)
+    if note_id:
+        # Get single note
+        result = make_request("GET", f"/api/notes/{note_id}", headers=auth_headers)
+        print_test_result("Get single note", result)
 
-    except Exception as e:
-        print(f"❌ FAIL Notes endpoints: {e}")
+        # Update note
+        update_data = {"content": "Updated content for the test note."}
+        result = make_request(
+            "PUT", f"/api/notes/{note_id}", data=update_data, headers=auth_headers
+        )
+        print_test_result("Update note", result)
+
+        # Delete note
+        result = make_request("DELETE", f"/api/notes/{note_id}", headers=auth_headers)
+        print_test_result("Delete note", result, 204)
 
 
 def test_chat_endpoints():
@@ -221,49 +223,39 @@ def test_chat_endpoints():
     print("TESTING CHAT/RAG ENDPOINTS")
     print("=" * 60)
 
-    # Test RAG endpoint (available)
+    # Test RAG endpoint
     query_data = {"question": "What does the Bible say about love?"}
     result = make_request("POST", "/api/rag/answer", query_data)
     print_test_result("RAG Query about love", result)
 
-    # Note: Other chat endpoints are commented out in main.py, so they'll return 404
-    print("   Note: Other chat endpoints (/api/chat/*) are disabled in main.py")
-
-
-def test_search_endpoints():
-    """Test search-related endpoints"""
-    print("\n" + "=" * 60)
-    print("TESTING SEARCH ENDPOINTS")
-    print("=" * 60)
-
-    print("   Note: Search endpoints (/api/chat/*) are disabled in main.py")
-    print("   Only /api/rag/answer is currently available for AI queries")
+    # Test knowledge graph query
+    kg_query_data = {"query": "MATCH (b:Book {name: 'John'}) RETURN b.name"}
+    result = make_request("POST", "/api/chat/kg", kg_query_data)
+    print_test_result("Knowledge Graph Query", result)
 
 
 def main():
     """Run all tests"""
     print("🚀 Starting BibleStudyAI API Testing Suite")
     print(f"Base URL: {BASE_URL}")
-    
+
     # Test basic functionality
     test_basic_endpoints()
     test_bible_endpoints()
-    
+
     # Test authentication and get token
     token = test_auth_endpoints()
-    
+
     # Test notes with auth token
     test_notes_endpoints(token)
-    
+
     # Test chat/RAG functionality
     test_chat_endpoints()
-    
-    # Test search functionality
-    test_search_endpoints()
-    
-    print("
-" + "=" * 60)
+
+    print("\n" + "=" * 60)
     print("✅ API Testing Complete!")
     print("=" * 60)
+
+
 if __name__ == "__main__":
     main()

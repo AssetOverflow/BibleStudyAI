@@ -1,36 +1,33 @@
-# Stage 1: Build the dependency layer
-FROM python:3.11-slim AS builder
+# Production Dockerfile for Backend
 
-# Set working directory
+# ---- Base ----
+FROM python:3.11.13-slim AS base
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=off \
+    PIP_DISABLE_PIP_VERSION_CHECK=on \
+    PIP_DEFAULT_TIMEOUT=100 \
+    POETRY_HOME="/opt/poetry" \
+    POETRY_VIRTUALENVS_CREATE=false \
+    POETRY_NO_INTERACTION=1 \
+    PATH="$POETRY_HOME/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+
+# ---- Builder ----
+FROM base AS builder
 WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential curl bash
+RUN curl -sSL https://install.python-poetry.org | python3 -
+COPY pyproject.toml poetry.lock ./
+RUN $POETRY_HOME/bin/poetry lock
+RUN $POETRY_HOME/bin/poetry install --no-root
 
-# Install poetry
-RUN pip install poetry
-
-# This will create the virtualenv in .venv
-RUN poetry config virtualenvs.in-project true
-
-# Copy only the files needed for dependency installation
-COPY pyproject.toml /app/
-
-# Install dependencies
-# --no-root: Don't install the project itself, only the dependencies
-RUN poetry install --no-root
-
-# Stage 2: Build the final application image
-FROM python:3.11-slim
-
-# Set working directory
+# ---- Final Image ----
+FROM base AS final
 WORKDIR /app
-
-# Copy the virtualenv from the builder
-COPY --from=builder /app/.venv ./.venv
-
-# Copy the application code
-COPY . /app/
-
-# Activate the virtual environment
-ENV PATH="/app/.venv/bin:$PATH"
-
-# Command to run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+COPY . .
+RUN useradd --create-home --shell /bin/bash app
+USER app
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

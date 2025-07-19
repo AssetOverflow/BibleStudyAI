@@ -10,13 +10,13 @@ import asyncio
 import pandas as pd
 from pathlib import Path
 
-# Add the backend directory to Python path
-backend_dir = Path(__file__).parent / "backend"
-sys.path.insert(0, str(backend_dir))
+# Add the project root directory to Python path
+project_root = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(project_root))
 
-from services.bible_service import BibleService
-from data_ingestion.embedder import Embedder
-from database.milvus_vector import MilvusManager
+from backend.services.bible_service import BibleService
+from backend.data_ingestion.embedder import Embedder
+from backend.database.milvus_vector import MilvusManager
 from loguru import logger
 
 
@@ -26,7 +26,8 @@ async def quick_bible_ingestion():
     logger.info("🚀 Starting Quick Bible Ingestion for RAG Testing...")
 
     # Initialize components
-    bible_service = BibleService(parquet_dir="db/bibles/parquet/")
+    parquet_path = project_root / "db" / "bibles" / "parquet"
+    bible_service = BibleService(parquet_dir=str(parquet_path))
     embedder = Embedder()
     milvus_manager = MilvusManager()
 

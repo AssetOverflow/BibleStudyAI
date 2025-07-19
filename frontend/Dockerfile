@@ -10,6 +10,9 @@ COPY package.json package-lock.json* ./
 # Install dependencies
 RUN npm install --legacy-peer-deps
 
+# Add node_modules/.bin to the PATH
+ENV PATH /app/node_modules/.bin:$PATH
+
 # Copy the rest of the application code to the working directory
 COPY . .
 

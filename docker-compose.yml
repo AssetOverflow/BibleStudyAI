@@ -1,16 +1,18 @@
 # @format
 services:
   # FastAPI Backend
-  fastapi-backend:
+  backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    image: elsquaz/biblestudyai-backend:latest
+    container_name: fastapi-backend
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:${POSTGRES_PORT}/${POSTGRES_DB}
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis-stack:${REDIS_PORT}
-      - KAFKA_BOOTSTRAP_SERVERS=redpanda:9092
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescale:${POSTGRES_PORT}/${POSTGRES_DB}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:${REDIS_PORT}
+      - KAFKA_BOOTSTRAP_SERVERS=rpk:9092
       - DEEPHAVEN_SERVER=http://deephaven:10000
       - MILVUS_HOST=milvus
       - MILVUS_PORT=19530
@@ -20,11 +22,11 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - XAI_API_KEY=${XAI_API_KEY}
     depends_on:
-      timescaledb:
+      timescale:
         condition: service_healthy
-      redis-stack:
+      redis:
         condition: service_healthy
-      redpanda:
+      rpk:
         condition: service_started
       deephaven:
         condition: service_started
@@ -33,6 +35,7 @@ services:
       neo4j:
         condition: service_healthy
     volumes:
+      - ./backend:/app
       - ./db:/app/db
     env_file:
       - .env
@@ -41,23 +44,30 @@ services:
     restart: unless-stopped
 
   # React Frontend (Vite)
-  react-frontend:
+  frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    image: elsquaz/biblestudyai-frontend:latest
+    container_name: react-frontend
+    command: ["npm", "run", "dev"]
     ports:
       - "3000:5173"
     environment:
-      - VITE_API_URL=http://fastapi-backend:8000
-      - VITE_WS_URL=ws://fastapi-backend:8000
+      - VITE_API_URL=http://backend:8000
+      - VITE_WS_URL=ws://backend:8000
     depends_on:
-      - fastapi-backend
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     networks:
       - biblestudyai-network
 
   # TimescaleDB with pgvectorscale
-  timescaledb:
+  timescale:
     image: timescale/timescaledb-ha:pg17
+    container_name: timescaledb
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -78,8 +88,9 @@ services:
       start_period: 30s
 
   # Redis Stack (includes RedisJSON, RedisSearch, RedisTimeSeries)
-  redis-stack:
+  redis:
     image: redis/redis-stack:latest
+    container_name: redis-stack
     environment:
       - REDIS_ARGS=--requirepass ${REDIS_PASSWORD}
     ports:
@@ -99,6 +110,7 @@ services:
   # Deephaven Server
   deephaven:
     image: ghcr.io/deephaven/server:latest
+    container_name: deephaven
     ports:
       - "10000:10000"
     environment:
@@ -107,8 +119,9 @@ services:
       - biblestudyai-network
 
   # Redpanda Kafka
-  redpanda:
+  rpk:
     image: docker.redpanda.com/redpandadata/redpanda:latest
+    container_name: redpanda
     command:
       - redpanda
       - start
@@ -125,6 +138,7 @@ services:
   # Milvus Vector Database
   milvus:
     image: milvusdb/milvus:latest
+    container_name: milvus
     command: ["milvus", "run", "standalone"]
     environment:
       - ETCD_ENDPOINTS=etcd:2379
@@ -142,6 +156,7 @@ services:
   # MinIO for Milvus
   minio:
     image: minio/minio:latest
+    container_name: minio
     environment:
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin
@@ -156,6 +171,7 @@ services:
   # etcd for Milvus
   etcd:
     image: quay.io/coreos/etcd:v3.5.0
+    container_name: etcd
     environment:
       - ETCD_AUTO_COMPACTION_MODE=revision
       - ETCD_AUTO_COMPACTION_RETENTION=1000
@@ -170,6 +186,7 @@ services:
   # Neo4j Graph Database
   neo4j:
     image: neo4j:5
+    container_name: neo4j
     environment:
       - NEO4J_AUTH=neo4j/password
       - NEO4J_apoc_export_file_enabled=true
@@ -199,13 +216,13 @@ services:
       start_period: 30s
 
 volumes:
-  timescaledb_data:
-  redis_data:
-  redpanda_data:
-  milvus_data:
-  etcd_data:
-  minio_data:
-  neo4j_data:
+  timescaledb_data: {}
+  redis_data: {}
+  redpanda_data: {}
+  milvus_data: {}
+  etcd_data: {}
+  minio_data: {}
+  neo4j_data: {}
 
 networks:
   biblestudyai-network:

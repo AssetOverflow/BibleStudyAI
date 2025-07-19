@@ -1,0 +1,164 @@
+[
+  {
+    "test_name": "Root Endpoint",
+    "success": true,
+    "duration_ms": 30.92,
+    "status_code": 200,
+    "error": null,
+    "timestamp": "2025-07-19T05:18:09.779823",
+    "response_preview": "{'message': 'Welcome to BibleStudyAI', 'version': '1.0.0'}"
+  },
+  {
+    "test_name": "Health Check",
+    "success": true,
+    "duration_ms": 1.11,
+    "status_code": 200,
+    "error": null,
+    "timestamp": "2025-07-19T05:18:09.781034",
+    "response_preview": "{'status': 'healthy', 'timestamp': '2025-07-19T12:18:09.779255', 'version': '1.0.0', 'components': {'database': 'connected', 'rag_system': 'active'}}"
+  },
+  {
+    "test_name": "User Registration",
+    "success": true,
+    "duration_ms": 445.62,
+    "status_code": 201,
+    "error": null,
+    "timestamp": "2025-07-19T05:18:10.226785",
+    "response_preview": "{'email': 'test@biblestudyai.com', 'name': 'Test User', 'id': 'ee553896-c063-4162-9f17-5b1e90b7521c'}"
+  },
+  {
+    "test_name": "User Login",
+    "success": false,
+    "duration_ms": 2.64,
+    "status_code": 422,
+    "error": "Expected 200, got 422",
+    "timestamp": "2025-07-19T05:18:10.229551",
+    "response_preview": "{'detail': [{'type': 'missing', 'loc': ['body', 'name'], 'msg': 'Field required', 'input': {'email': 'test@biblestudyai.com', 'password': 'SecureTestPassword123!'}}]}"
+  },
+  {
+    "test_name": "Single Verse Lookup",
+    "success": false,
+    "duration_ms": 0.95,
+    "status_code": 404,
+    "error": "Expected 200, got 404",
+    "timestamp": "2025-07-19T05:18:10.230627",
+    "response_preview": "{'detail': 'Not Found'}"
+  },
+  {
+    "test_name": "Passage Lookup",
+    "success": false,
+    "duration_ms": 0.89,
+    "status_code": 404,
+    "error": "Expected 200, got 404",
+    "timestamp": "2025-07-19T05:18:10.231601",
+    "response_preview": "{'detail': 'Not Found'}"
+  },
+  {
+    "test_name": "Bible Search",
+    "success": false,
+    "duration_ms": 1.09,
+    "status_code": 404,
+    "error": "Expected 200, got 404",
+    "timestamp": "2025-07-19T05:18:10.232766",
+    "response_preview": "{'detail': 'Not Found'}"
+  },
+  {
+    "test_name": "RAG Question Answering",
+    "success": true,
+    "duration_ms": 24294.95,
+    "status_code": 200,
+    "error": null,
+    "timestamp": "2025-07-19T05:18:34.528012",
+    "response_preview": "{'answer': 'I could not find any relevant information to answer your question.', 'context': {}}"
+  },
+  {
+    "test_name": "Concurrent Health Check 1",
+    "success": true,
+    "duration_ms": 8.06,
+    "status_code": 200,
+    "error": null,
+    "timestamp": "2025-07-19T05:18:34.536544",
+    "response_preview": "{'status': 'healthy', 'timestamp': '2025-07-19T12:18:34.531010', 'version': '1.0.0', 'components': {'database': 'connected', 'rag_system': 'active'}}"
+  },
+  {
+    "test_name": "Concurrent Health Check 2",
+    "success": true,
+    "duration_ms": 10.89,
+    "status_code": 200,
+    "error": null,
+    "timestamp": "2025-07-19T05:18:34.539731",
+    "response_preview": "{'status': 'healthy', 'timestamp': '2025-07-19T12:18:34.535266', 'version': '1.0.0', 'components': {'database': 'connected', 'rag_system': 'active'}}"
+  },
+  {
+    "test_name": "Concurrent Health Check 5",
+    "success": true,
+    "duration_ms": 13.12,
+    "status_code": 200,
+    "error": null,
+    "timestamp": "2025-07-19T05:18:34.542958",
+    "response_preview": "{'status': 'healthy', 'timestamp': '2025-07-19T12:18:34.539276', 'version': '1.0.0', 'components': {'database': 'connected', 'rag_system': 'active'}}"
+  },
+  {
+    "test_name": "Concurrent Health Check 3",
+    "success": true,
+    "duration_ms": 14.17,
+    "status_code": 200,
+    "error": null,
+    "timestamp": "2025-07-19T05:18:34.543105",
+    "response_preview": "{'status': 'healthy', 'timestamp': '2025-07-19T12:18:34.538073', 'version': '1.0.0', 'components': {'database': 'connected', 'rag_system': 'active'}}"
+  },
+  {
+    "test_name": "Concurrent Health Check 4",
+    "success": true,
+    "duration_ms": 13.66,
+    "status_code": 200,
+    "error": null,
+    "timestamp": "2025-07-19T05:18:34.543250",
+    "response_preview": "{'status': 'healthy', 'timestamp': '2025-07-19T12:18:34.539204', 'version': '1.0.0', 'components': {'database': 'connected', 'rag_system': 'active'}}"
+  },
+  {
+    "test_name": "Concurrent Health Check 6",
+    "success": true,
+    "duration_ms": 13.88,
+    "status_code": 200,
+    "error": null,
+    "timestamp": "2025-07-19T05:18:34.543770",
+    "response_preview": "{'status': 'healthy', 'timestamp': '2025-07-19T12:18:34.540723', 'version': '1.0.0', 'components': {'database': 'connected', 'rag_system': 'active'}}"
+  },
+  {
+    "test_name": "Concurrent Health Check 7",
+    "success": true,
+    "duration_ms": 14.02,
+    "status_code": 200,
+    "error": null,
+    "timestamp": "2025-07-19T05:18:34.544031",
+    "response_preview": "{'status': 'healthy', 'timestamp': '2025-07-19T12:18:34.540802', 'version': '1.0.0', 'components': {'database': 'connected', 'rag_system': 'active'}}"
+  },
+  {
+    "test_name": "Concurrent Health Check 8",
+    "success": true,
+    "duration_ms": 15.07,
+    "status_code": 200,
+    "error": null,
+    "timestamp": "2025-07-19T05:18:34.545183",
+    "response_preview": "{'status': 'healthy', 'timestamp': '2025-07-19T12:18:34.542236', 'version': '1.0.0', 'components': {'database': 'connected', 'rag_system': 'active'}}"
+  },
+  {
+    "test_name": "Concurrent Health Check 9",
+    "success": true,
+    "duration_ms": 15.31,
+    "status_code": 200,
+    "error": null,
+    "timestamp": "2025-07-19T05:18:34.545438",
+    "response_preview": "{'status': 'healthy', 'timestamp': '2025-07-19T12:18:34.542311', 'version': '1.0.0', 'components': {'database': 'connected', 'rag_system': 'active'}}"
+  },
+  {
+    "test_name": "Concurrent Health Check 10",
+    "success": true,
+    "duration_ms": 15.37,
+    "status_code": 200,
+    "error": null,
+    "timestamp": "2025-07-19T05:18:34.545578",
+    "response_preview": "{'status': 'healthy', 'timestamp': '2025-07-19T12:18:34.542130', 'version': '1.0.0', 'components': {'database': 'connected', 'rag_system': 'active'}}"
+  }
+]
