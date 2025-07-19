@@ -6,7 +6,7 @@ This document outlines the development plan for the Koinonia House backend. The 
 
 ## 1. Project Setup & Configuration
 
-- **Environment Variables**: Ensure all necessary environment variables from `docker-compose.yml` are documented and a `.env.example` file is created.
+- **Environment Variables**: Ensure all necessary environment variables from `docker-compose.yml` are documented in the `.env` file.
 - **Configuration Management**: Use `backend/utils/config.py` to load and manage all configurations.
 - **Logging**: Implement structured logging in `backend/utils/logging.py` to be used across all services.
 

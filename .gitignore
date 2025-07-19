@@ -106,7 +106,6 @@ coverage/
 *.swo
 
 # Backend-specific
-backend/.env.example
 backend/__pycache__/
 backend/*.py[cod]
 backend/*.log
