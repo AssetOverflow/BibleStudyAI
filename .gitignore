@@ -5,8 +5,8 @@
 .env.test.local
 .env.production.local
 .env.*
-/*/.env
-/*/.env.*
+/backend/.env
+/backend/.env.*
 
 # virtual environments
 venv/
