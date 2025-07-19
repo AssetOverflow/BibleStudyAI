@@ -71,6 +71,26 @@ class RedisManager:
             logger.error(f"Error retrieving key {key} from Redis: {e}")
             return None
 
+    async def mget(self, keys: list) -> list:
+        """
+        Retrieves multiple values from Redis using batch operation.
+
+        Args:
+            keys (list): List of cache keys.
+
+        Returns:
+            list: List of cached values (None for missing keys).
+        """
+        if not self.redis_client:
+            await self.connect()
+
+        try:
+            values = await self.redis_client.mget(keys)
+            return values
+        except Exception as e:
+            logger.error(f"Error retrieving keys {keys} from Redis: {e}")
+            return [None] * len(keys)
+
     async def set(self, key: str, value: str, ttl: int = 3600) -> bool:
         """
         Sets a value in Redis with TTL.
