@@ -107,8 +107,10 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/auth", tags=["authentication"])
 app.include_router(notes.router, prefix="/api/notes", tags=["notes"])
 app.include_router(bible.router, prefix="/api/bible", tags=["bible"])
-# app.include_router(chat.router, prefix="/api/chat", tags=["chat"])  # Enable when chat router is ready
-# app.include_router(users.router, prefix="/api/users", tags=["users"])  # Enable when users router is ready
+from routers import search
+
+# ...existing code...
+app.include_router(search.router, prefix="/api/search", tags=["search"])
 
 
 # Core RAG API Endpoint

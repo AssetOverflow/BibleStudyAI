@@ -1,437 +1,382 @@
-from typing import List, Dict, Any
-import hashlib
-from loguru import logger
+"""
+Tools for the Pydantic AI agent.
+"""
 
-from database.milvus_vector import MilvusManager
-from database.neo4j_graph import Neo4jManager
-from database.redis_cache import get_redis_manager
-from data_ingestion.embedder import Embedder
-from services.ai_integration import ai_integration_client, ModelProvider
-from prompts.graph_prompt import ENTITY_EXTRACTION_PROMPT
-from utils.config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD
-import json
+import os
+import logging
+from typing import List, Dict, Any, Optional
+from datetime import datetime
+import asyncio
+
+from pydantic import BaseModel, Field
+from dotenv import load_dotenv
+
+from .db_utils import (
+    vector_search,
+    hybrid_search,
+    get_document,
+    list_documents,
+    get_document_chunks,
+)
+from .graph_utils import search_knowledge_graph, get_entity_relationships, graph_client
+from .models import ChunkResult, GraphSearchResult, DocumentMetadata
+from .providers import get_embedding_client, get_embedding_model
+
+# Load environment variables
+load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+# Initialize embedding client with flexible provider
+embedding_client = get_embedding_client()
+EMBEDDING_MODEL = get_embedding_model()
 
 
-class SearchTools:
+async def generate_embedding(text: str) -> List[float]:
     """
-    A collection of tools for searching the knowledge graph and vector database.
+    Generate embedding for text using OpenAI.
+
+    Args:
+        text: Text to embed
+
+    Returns:
+        Embedding vector
     """
+    try:
+        response = await embedding_client.embeddings.create(
+            model=EMBEDDING_MODEL, input=text
+        )
+        return response.data[0].embedding
+    except Exception as e:
+        logger.error(f"Failed to generate embedding: {e}")
+        raise
 
-    def __init__(self):
-        logger.info("Initializing SearchTools...")
-        # Initialize components with error handling
-        try:
-            self.milvus_manager = MilvusManager()
-            logger.info("Milvus manager initialized successfully")
-        except Exception as e:
-            logger.warning(f"Failed to initialize Milvus manager: {e}")
-            self.milvus_manager = None
 
-        try:
-            self.neo4j_manager = Neo4jManager()
-            logger.info("Neo4j manager initialized successfully")
-        except Exception as e:
-            logger.warning(f"Failed to initialize Neo4j manager: {e}")
-            self.neo4j_manager = None
+# Tool Input Models
+class VectorSearchInput(BaseModel):
+    """Input for vector search tool."""
 
-        self.embedder = Embedder()
-        self.redis_manager = get_redis_manager()
-        self.collection_name = "bible_verses"
-        logger.info("SearchTools initialized.")
+    query: str = Field(..., description="Search query")
+    limit: int = Field(default=10, description="Maximum number of results")
 
-    async def vector_search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
-        """
-        Performs a vector similarity search in Milvus with caching and improved scoring.
 
-        Args:
-            query (str): The search query.
-            top_k (int): The number of results to return.
+class GraphSearchInput(BaseModel):
+    """Input for graph search tool."""
 
-        Returns:
-            List[Dict[str, Any]]: A list of search results with enhanced metadata.
-        """
-        logger.info(f"Performing vector search for query: '{query}'")
+    query: str = Field(..., description="Search query")
 
-        # Check if Milvus is available
-        if self.milvus_manager is None or not self.milvus_manager.is_available():
-            logger.warning("Milvus manager not available, returning empty results")
-            return []
 
-        # Create cache key
-        query_hash = hashlib.sha256(
-            f"vector_search:{query}:{top_k}".encode()
-        ).hexdigest()
+class HybridSearchInput(BaseModel):
+    """Input for hybrid search tool."""
 
-        # Check cache first
-        cached_results = await self.redis_manager.get_cached_search_results(query_hash)
-        if cached_results:
-            logger.debug(f"Using cached vector search results for query: '{query}'")
-            return cached_results
+    query: str = Field(..., description="Search query")
+    limit: int = Field(default=10, description="Maximum number of results")
+    text_weight: float = Field(
+        default=0.3, description="Weight for text similarity (0-1)"
+    )
 
-        try:
-            query_embedding = await self.embedder.embed_text(query)
-            if not query_embedding:
-                logger.warning("Could not generate embedding for the query.")
-                return []
 
-            results = self.milvus_manager.search(
-                collection_name=self.collection_name,
-                query_vectors=[query_embedding],
-                top_k=top_k,
+class DocumentInput(BaseModel):
+    """Input for document retrieval."""
+
+    document_id: str = Field(..., description="Document ID to retrieve")
+
+
+class DocumentListInput(BaseModel):
+    """Input for listing documents."""
+
+    limit: int = Field(default=20, description="Maximum number of documents")
+    offset: int = Field(default=0, description="Number of documents to skip")
+
+
+class EntityRelationshipInput(BaseModel):
+    """Input for entity relationship query."""
+
+    entity_name: str = Field(..., description="Name of the entity")
+    depth: int = Field(default=2, description="Maximum traversal depth")
+
+
+class EntityTimelineInput(BaseModel):
+    """Input for entity timeline query."""
+
+    entity_name: str = Field(..., description="Name of the entity")
+    start_date: Optional[str] = Field(None, description="Start date (ISO format)")
+    end_date: Optional[str] = Field(None, description="End date (ISO format)")
+
+
+# Tool Implementation Functions
+async def vector_search_tool(input_data: VectorSearchInput) -> List[ChunkResult]:
+    """
+    Perform vector similarity search.
+
+    Args:
+        input_data: Search parameters
+
+    Returns:
+        List of matching chunks
+    """
+    try:
+        # Generate embedding for the query
+        embedding = await generate_embedding(input_data.query)
+
+        # Perform vector search
+        results = await vector_search(embedding=embedding, limit=input_data.limit)
+
+        # Convert to ChunkResult models
+        return [
+            ChunkResult(
+                chunk_id=str(r["chunk_id"]),
+                document_id=str(r["document_id"]),
+                content=r["content"],
+                score=r["similarity"],
+                metadata=r["metadata"],
+                document_title=r["document_title"],
+                document_source=r["document_source"],
             )
+            for r in results
+        ]
 
-            # Process results with enhanced scoring and metadata
-            processed_results = []
-            if results:
-                for hit in results[0]:  # Results is a list of lists of hits
-                    entity = hit.entity
+    except Exception as e:
+        logger.error(f"Vector search failed: {e}")
+        return []
 
-                    # Enhanced scoring: normalize distance to similarity score
-                    similarity_score = (
-                        1.0 / (1.0 + hit.distance) if hit.distance > 0 else 1.0
-                    )
 
-                    result = {
-                        "id": entity.get("id"),
-                        "distance": hit.distance,
-                        "similarity_score": similarity_score,
-                        "text": entity.get("text"),
-                        "metadata": {
-                            "translation": entity.get("translation"),
-                            "book": entity.get("book"),
-                            "chapter": entity.get("chapter"),
-                            "chunk_index": entity.get("chunk_index"),
-                        },
-                        "relevance_indicators": {
-                            "text_length": len(entity.get("text", "")),
-                            "has_keywords": self._check_query_keywords_in_text(
-                                query, entity.get("text", "")
-                            ),
-                        },
-                    }
-                    processed_results.append(result)
+async def graph_search_tool(input_data: GraphSearchInput) -> List[GraphSearchResult]:
+    """
+    Search the knowledge graph.
 
-            # Sort by similarity score (highest first)
-            processed_results.sort(key=lambda x: x["similarity_score"], reverse=True)
+    Args:
+        input_data: Search parameters
 
-            # Cache the results
-            await self.redis_manager.cache_search_results(query_hash, processed_results)
+    Returns:
+        List of graph search results
+    """
+    try:
+        results = await search_knowledge_graph(query=input_data.query)
 
-            return processed_results
-        except Exception as e:
-            logger.opt(exception=True).error(
-                f"An error occurred during vector search: {e}"
+        # Convert to GraphSearchResult models
+        return [
+            GraphSearchResult(
+                fact=r["fact"],
+                uuid=r["uuid"],
+                valid_at=r.get("valid_at"),
+                invalid_at=r.get("invalid_at"),
+                source_node_uuid=r.get("source_node_uuid"),
             )
-            return []
+            for r in results
+        ]
 
-    def _check_query_keywords_in_text(self, query: str, text: str) -> bool:
-        """
-        Checks if any keywords from the query appear in the text.
-        """
-        query_words = set(query.lower().split())
-        text_words = set(text.lower().split())
-        return len(query_words.intersection(text_words)) > 0
+    except Exception as e:
+        logger.error(f"Graph search failed: {e}")
+        return []
 
-    async def _extract_entities_from_text(self, text: str) -> List[str]:
-        """
-        Uses an LLM to extract key entities from a text.
-        """
-        logger.info(f"Extracting entities from text: '{text[:100]}...'")
-        if not text:
-            return []
 
-        prompt = ENTITY_EXTRACTION_PROMPT.format(text=text)
-        try:
-            response_text = await ai_integration_client.generate_text(
-                prompt=prompt,
-                provider=ModelProvider.OPENAI,  # Or make this configurable
-                system_prompt="You are a helpful assistant that only returns valid, well-formed JSON.",
-            )
-            cleaned_response = (
-                response_text.strip().replace("```json", "").replace("```", "").strip()
-            )
-            data = json.loads(cleaned_response)
-            entities = data.get("entities", [])
-            logger.info(f"Extracted entities: {entities}")
-            return entities
-        except json.JSONDecodeError:
-            logger.error(
-                f"Failed to decode JSON for entity extraction. Response was:\n{response_text}"
-            )
-            return []
-        except Exception as e:
-            logger.opt(exception=True).error(
-                f"An error occurred during entity extraction: {e}"
-            )
-            return []
+async def hybrid_search_tool(input_data: HybridSearchInput) -> List[ChunkResult]:
+    """
+    Perform hybrid search (vector + keyword).
 
-    def graph_search(
-        self, entities: List[str], max_depth: int = 2
-    ) -> List[Dict[str, Any]]:
-        """
-        Performs an optimized search in the Neo4j knowledge graph with depth control.
+    Args:
+        input_data: Search parameters
 
-        Args:
-            entities (List[str]): A list of entity names to search for.
-            max_depth (int): Maximum relationship depth to traverse.
+    Returns:
+        List of matching chunks
+    """
+    try:
+        # Generate embedding for the query
+        embedding = await generate_embedding(input_data.query)
 
-        Returns:
-            List[Dict[str, Any]]: A list of paths or subgraphs found.
-        """
-        if not entities:
-            return []
-
-        # Check if Neo4j is available
-        if self.neo4j_manager is None:
-            logger.warning("Neo4j manager not available, returning empty results")
-            return []
-
-        logger.info(
-            f"Performing graph search for entities: {entities} with max depth: {max_depth}"
+        # Perform hybrid search
+        results = await hybrid_search(
+            embedding=embedding,
+            query_text=input_data.query,
+            limit=input_data.limit,
+            text_weight=input_data.text_weight,
         )
 
-        # Create cache key
-        entities_key = "|".join(sorted(entities))
-        cache_key = f"graph_search:{hashlib.sha256(entities_key.encode()).hexdigest()}:{max_depth}"
-
-        try:
-            # Check cache first (synchronous for graph search)
-            # Note: We'd need async version of Neo4j operations for full async caching
-
-            # Optimized query with depth control and relevance scoring
-            cypher_query = f"""
-            UNWIND $entities AS entityName
-            MATCH (n)
-            WHERE n.name IS NOT NULL AND toLower(n.name) CONTAINS toLower(entityName)
-            
-            // Find related entities within specified depth
-            OPTIONAL MATCH path = (n)-[*1..{max_depth}]-(m)
-            WHERE m.name IS NOT NULL
-            
-            // Calculate relevance based on relationship distance and entity importance
-            WITH n, m, path, 
-                 CASE WHEN path IS NULL THEN 0 ELSE length(path) END as distance,
-                 CASE WHEN n.importance IS NOT NULL THEN n.importance ELSE 1 END as n_importance,
-                 CASE WHEN m.importance IS NOT NULL THEN m.importance ELSE 1 END as m_importance
-            
-            // Return results ordered by relevance
-            RETURN DISTINCT n, m, 
-                   relationships(path) as rels,
-                   distance,
-                   (n_importance + m_importance) / (distance + 1) as relevance_score
-            ORDER BY relevance_score DESC
-            LIMIT 100
-            """
-
-            results = self.neo4j_manager.query(
-                cypher_query, {"entities": entities, "max_depth": max_depth}
+        # Convert to ChunkResult models
+        return [
+            ChunkResult(
+                chunk_id=str(r["chunk_id"]),
+                document_id=str(r["document_id"]),
+                content=r["content"],
+                score=r["combined_score"],
+                metadata=r["metadata"],
+                document_title=r["document_title"],
+                document_source=r["document_source"],
             )
+            for r in results
+        ]
 
-            # Process and enhance results
-            processed_results = []
-            for record in results:
-                processed_result = {
-                    "source_node": record.get("n", {}),
-                    "target_node": record.get("m", {}),
-                    "relationships": record.get("rels", []),
-                    "distance": record.get("distance", 0),
-                    "relevance_score": record.get("relevance_score", 0),
-                    "relationship_types": (
-                        [rel.type for rel in record.get("rels", [])]
-                        if record.get("rels")
-                        else []
-                    ),
-                }
-                processed_results.append(processed_result)
+    except Exception as e:
+        logger.error(f"Hybrid search failed: {e}")
+        return []
 
-            return processed_results
 
-        except Exception as e:
-            logger.opt(exception=True).error(
-                f"An error occurred during graph search: {e}"
-            )
-            return []
+async def get_document_tool(input_data: DocumentInput) -> Optional[Dict[str, Any]]:
+    """
+    Retrieve a complete document.
 
-    async def hybrid_search(self, query: str, top_k: int = 3) -> Dict[str, Any]:
-        """
-        Combines vector and graph search with intelligent result fusion and caching.
+    Args:
+        input_data: Document retrieval parameters
 
-        Args:
-            query (str): The search query.
-            top_k (int): The number of top results for the vector search part.
+    Returns:
+        Document data or None
+    """
+    try:
+        document = await get_document(input_data.document_id)
 
-        Returns:
-            Dict[str, Any]: Enhanced results with fusion scoring and metadata.
-        """
-        logger.info(f"Performing hybrid search for query: '{query}'")
+        if document:
+            # Also get all chunks for the document
+            chunks = await get_document_chunks(input_data.document_id)
+            document["chunks"] = chunks
 
-        # Create comprehensive cache key
-        query_hash = hashlib.sha256(
-            f"hybrid_search:{query}:{top_k}".encode()
-        ).hexdigest()
+        return document
 
-        # Check cache first
-        cached_results = await self.redis_manager.get_cached_search_results(query_hash)
-        if cached_results:
-            logger.debug(f"Using cached hybrid search results for query: '{query}'")
-            return cached_results
+    except Exception as e:
+        logger.error(f"Document retrieval failed: {e}")
+        return None
 
-        # 1. Vector Search with enhanced metadata
-        vector_results = await self.vector_search(query, top_k=top_k)
 
-        if not vector_results:
-            empty_result = {
-                "vector_results": [],
-                "graph_results": [],
-                "fusion_score": 0.0,
-            }
-            await self.redis_manager.cache_search_results(query_hash, empty_result)
-            return empty_result
+async def list_documents_tool(input_data: DocumentListInput) -> List[DocumentMetadata]:
+    """
+    List available documents.
 
-        # 2. Extract entities from the top vector search results (not just the first one)
-        # Temporarily skip entity extraction to fix RAG system
-        extracted_entities = []
-        logger.info("Skipping entity extraction temporarily for testing")
-        
-        # all_extracted_entities = set()
-        # for result in vector_results[
-        #     : min(3, len(vector_results))
-        # ]:  # Use top 3 results
-        #     text = result.get("text", "")
-        #     entities = await self._extract_entities_from_text(text)
-        #     all_extracted_entities.update(entities)
+    Args:
+        input_data: Listing parameters
 
-        # extracted_entities = list(all_extracted_entities)
-
-        # 3. Perform enhanced graph search
-        graph_results = []
-        if extracted_entities:
-            graph_results = self.graph_search(extracted_entities, max_depth=2)
-        else:
-            # Fallback to using query terms
-            logger.info("No entities extracted, using query terms for graph search.")
-            query_terms = [
-                term.strip() for term in query.split() if len(term.strip()) > 2
-            ]
-            graph_results = self.graph_search(query_terms, max_depth=1)
-
-        # 4. Calculate fusion scores
-        fusion_score = self._calculate_fusion_score(
-            vector_results, graph_results, query
+    Returns:
+        List of document metadata
+    """
+    try:
+        documents = await list_documents(
+            limit=input_data.limit, offset=input_data.offset
         )
 
-        # 5. Prepare enhanced result structure
-        enhanced_results = {
-            "vector_results": vector_results,
-            "graph_results": graph_results,
-            "fusion_score": fusion_score,
-            "extracted_entities": extracted_entities,
-            "query_analysis": {
-                "query_length": len(query),
-                "query_terms": query.split(),
-                "estimated_complexity": self._estimate_query_complexity(query),
-            },
-            "result_statistics": {
-                "total_vector_results": len(vector_results),
-                "total_graph_results": len(graph_results),
-                "unique_entities_found": len(extracted_entities),
-                "average_vector_similarity": (
-                    sum(r.get("similarity_score", 0) for r in vector_results)
-                    / len(vector_results)
-                    if vector_results
-                    else 0
-                ),
-            },
+        # Convert to DocumentMetadata models
+        return [
+            DocumentMetadata(
+                id=d["id"],
+                title=d["title"],
+                source=d["source"],
+                metadata=d["metadata"],
+                created_at=datetime.fromisoformat(d["created_at"]),
+                updated_at=datetime.fromisoformat(d["updated_at"]),
+                chunk_count=d.get("chunk_count"),
+            )
+            for d in documents
+        ]
+
+    except Exception as e:
+        logger.error(f"Document listing failed: {e}")
+        return []
+
+
+async def get_entity_relationships_tool(
+    input_data: EntityRelationshipInput,
+) -> Dict[str, Any]:
+    """
+    Get relationships for an entity.
+
+    Args:
+        input_data: Entity relationship parameters
+
+    Returns:
+        Entity relationships
+    """
+    try:
+        return await get_entity_relationships(
+            entity=input_data.entity_name, depth=input_data.depth
+        )
+
+    except Exception as e:
+        logger.error(f"Entity relationship query failed: {e}")
+        return {
+            "central_entity": input_data.entity_name,
+            "related_entities": [],
+            "relationships": [],
+            "depth": input_data.depth,
+            "error": str(e),
         }
 
-        # Cache the enhanced results
-        await self.redis_manager.cache_search_results(query_hash, enhanced_results)
 
-        return enhanced_results
+async def get_entity_timeline_tool(
+    input_data: EntityTimelineInput,
+) -> List[Dict[str, Any]]:
+    """
+    Get timeline of facts for an entity.
 
-    def _calculate_fusion_score(
-        self, vector_results: List[Dict], graph_results: List[Dict], query: str
-    ) -> float:
-        """
-        Calculates a fusion score based on the quality and relevance of both search results.
-        """
-        if not vector_results and not graph_results:
-            return 0.0
+    Args:
+        input_data: Timeline query parameters
 
-        # Vector component (30% weight)
-        vector_score = 0.0
-        if vector_results:
-            avg_similarity = sum(
-                r.get("similarity_score", 0) for r in vector_results
-            ) / len(vector_results)
-            keyword_bonus = sum(
-                1
-                for r in vector_results
-                if r.get("relevance_indicators", {}).get("has_keywords", False)
-            ) / len(vector_results)
-            vector_score = (avg_similarity * 0.7 + keyword_bonus * 0.3) * 0.3
-
-        # Graph component (70% weight) - knowledge graphs are often more precise
-        graph_score = 0.0
-        if graph_results:
-            avg_relevance = sum(
-                r.get("relevance_score", 0) for r in graph_results
-            ) / len(graph_results)
-            relationship_diversity = len(
-                set(
-                    rel_type
-                    for r in graph_results
-                    for rel_type in r.get("relationship_types", [])
-                )
-            )
-            graph_score = (
-                avg_relevance * 0.8 + min(relationship_diversity / 10, 1.0) * 0.2
-            ) * 0.7
-
-        return min(vector_score + graph_score, 1.0)
-
-    def _estimate_query_complexity(self, query: str) -> str:
-        """
-        Estimates the complexity of a query based on length and structure.
-        """
-        word_count = len(query.split())
-        if word_count <= 3:
-            return "simple"
-        elif word_count <= 7:
-            return "medium"
-        else:
-            return "complex"
-
-    def close_connections(self):
-        """Closes database connections and Redis connection."""
-        if self.neo4j_manager:
-            self.neo4j_manager.close()
-        # Note: Redis connection will be closed when the manager is garbage collected
-        # or explicitly closed elsewhere
-        logger.info("SearchTools connections closed.")
-
-
-# Example Usage
-async def main():
-    tools = SearchTools()
+    Returns:
+        Timeline of facts
+    """
     try:
-        query = "light and darkness"
+        # Parse dates if provided
+        start_date = None
+        end_date = None
 
-        print("--- Vector Search Results ---")
-        vector_res = await tools.vector_search(query)
-        print(vector_res)
+        if input_data.start_date:
+            start_date = datetime.fromisoformat(input_data.start_date)
+        if input_data.end_date:
+            end_date = datetime.fromisoformat(input_data.end_date)
 
-        print("\n--- Graph Search Results ---")
-        graph_res = tools.graph_search("God")
-        print(graph_res)
+        # Get timeline from graph
+        timeline = await graph_client.get_entity_timeline(
+            entity_name=input_data.entity_name, start_date=start_date, end_date=end_date
+        )
 
-        print("\n--- Hybrid Search Results ---")
-        hybrid_res = await tools.hybrid_search(query)
-        print(hybrid_res)
+        return timeline
 
-    finally:
-        tools.close_connections()
+    except Exception as e:
+        logger.error(f"Entity timeline query failed: {e}")
+        return []
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+# Combined search function for agent use
+async def perform_comprehensive_search(
+    query: str, use_vector: bool = True, use_graph: bool = True, limit: int = 10
+) -> Dict[str, Any]:
+    """
+    Perform a comprehensive search using multiple methods.
+
+    Args:
+        query: Search query
+        use_vector: Whether to use vector search
+        use_graph: Whether to use graph search
+        limit: Maximum results per search type (only applies to vector search)
+
+    Returns:
+        Combined search results
+    """
+    results = {
+        "query": query,
+        "vector_results": [],
+        "graph_results": [],
+        "total_results": 0,
+    }
+
+    tasks = []
+
+    if use_vector:
+        tasks.append(vector_search_tool(VectorSearchInput(query=query, limit=limit)))
+
+    if use_graph:
+        tasks.append(graph_search_tool(GraphSearchInput(query=query)))
+
+    if tasks:
+        search_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        if use_vector and not isinstance(search_results[0], Exception):
+            results["vector_results"] = search_results[0]
+
+        if use_graph:
+            graph_idx = 1 if use_vector else 0
+            if not isinstance(search_results[graph_idx], Exception):
+                results["graph_results"] = search_results[graph_idx]
+
+    results["total_results"] = len(results["vector_results"]) + len(
+        results["graph_results"]
+    )
+
+    return results
